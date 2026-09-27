@@ -11,7 +11,7 @@ export function NavLinks({ items }: { items: NavItem[] }) {
   return (
     <nav className="nav" aria-label="Dashboard">
       {items.map((it) => {
-        const active = it.href === "/dashboard" ? path === "/dashboard" : path.startsWith(it.href);
+        const active = it.href === "/dashboard" || it.href === "/platform" ? path === it.href || (it.href === "/platform" && path.startsWith("/platform/clients")) : path.startsWith(it.href);
         const Icon = NavIcons[it.icon];
         return (
           <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined}>

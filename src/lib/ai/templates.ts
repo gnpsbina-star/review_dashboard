@@ -60,15 +60,22 @@ function fill(t: string, p: BranchProfile, h: string): string {
 export function templateSuggestions(p: BranchProfile, lang: Lang, tier: 4 | 5, count: number): string[] {
   const bank = BANKS[lang][tier];
   const highlights = p.highlights.length ? p.highlights : lang === "hi" ? ["सेवा"] : ["service"];
-  const out = new Set<string>();
-  let i = 0;
-  while (out.size < count && i < count * 6) {
-    const h = highlights[i % highlights.length];
-    const parts = [bank.open[i % bank.open.length], bank.mid[(i + 1) % bank.mid.length]];
-    if (i % 4 === 3) parts.push(bank.staff[i % bank.staff.length]);
-    parts.push(bank.close[(i * 7) % bank.close.length]);
-    out.add(parts.map((part) => capitalize(fill(part, p, h))).join(" "));
-    i++;
+  // Every combination of opening, highlight line, optional staff thanks and closing, in a spread-out order.
+  const combos: string[] = [];
+  for (const [oi, open] of bank.open.entries())
+    for (const [mi, mid] of bank.mid.entries())
+      for (const [hi, h] of highlights.entries())
+        for (const [ci, close] of bank.close.entries()) {
+          const withStaff = (oi + mi + hi + ci) % 4 === 3;
+          const parts = [open, mid, ...(withStaff ? [bank.staff[(oi + ci) % bank.staff.length]] : []), close];
+          combos.push(parts.map((part) => capitalize(fill(part, p, h))).join(" "));
+        }
+  const out: string[] = [];
+  const step = 7; // co-prime with typical sizes, so neighbours differ in several parts
+  for (let i = 0, j = 0; i < combos.length && out.length < count; i++, j = (j + step) % combos.length) {
+    let k = j;
+    while (out.includes(combos[k])) k = (k + 1) % combos.length;
+    out.push(combos[k]);
   }
-  return [...out];
+  return out;
 }

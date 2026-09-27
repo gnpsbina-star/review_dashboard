@@ -408,3 +408,18 @@ erDiagram
 - Subscription prices and plan tiers.
 - Purchase of a Synergy Technologies domain (the Worker target changes; the QR codes do not).
 - Choice of penetration-testing firm before the first large client.
+
+---
+
+## 15. Implementation Notes (Phase 1 build)
+
+Where the build differs from the text above, and why:
+
+| Topic | Spec said | Built | Reason |
+|---|---|---|---|
+| Logo storage | Cloudflare R2 | Stored in Postgres (re-encoded 256×256 PNG, a few KB each) | One fewer service to set up; tiny footprint. Can move to R2 later without UI changes. |
+| Sign-in library | Auth.js | Google OAuth via `arctic` + own database sessions | Full control over the invite whitelist and instant session revocation; less code to audit. |
+| Plan table | Separate `PLAN` table | Plan name and branch limit stored on each subscription | Prices are not decided yet; a plan catalogue arrives with Razorpay billing in phase 2. |
+| Analytics tile “4–5★ who went to Google” | Share of happy customers who clicked | “Sent to Google” count | Phase 1 does not log 4–5★ ratings that don’t click through, so a share can’t be computed honestly. |
+| Scheduled jobs | GitHub Actions or cron-job.org | GitHub Actions (`.github/workflows/cron.yml`) | Free, and lives in the repo. |
+| Original link format | `/review?branch=<slug>&table=5` | Still supported; forwards to the permanent `/r/<code>` page | Backwards compatible with any early printed links. |

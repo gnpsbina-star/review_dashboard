@@ -2,11 +2,14 @@ import "server-only";
 import { headers } from "next/headers";
 import { env } from "@/lib/env";
 
-/** Client IP as reported by the hosting proxy (Vercel / Cloudflare). Used only in hashed form. */
+/**
+ * Client IP as set by the hosting platform (Vercel overwrites these headers, so
+ * clients can't spoof them). Used only in hashed form, for rate limits.
+ */
 export async function clientIp(): Promise<string | null> {
   const h = await headers();
-  const ip = h.get("cf-connecting-ip") ?? h.get("x-real-ip") ?? h.get("x-forwarded-for")?.split(",")[0];
-  return ip?.trim() || null;
+  const ip = h.get("x-real-ip") ?? h.get("x-forwarded-for")?.split(",")[0];
+  return ip?.trim().slice(0, 64) || null;
 }
 
 /** CSRF defence for plain route handlers: the request must come from our own site. */

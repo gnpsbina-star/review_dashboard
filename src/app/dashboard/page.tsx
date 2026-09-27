@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmButton } from "@/components/dashboard/ConfirmButton";
 import { ContactActions } from "@/components/dashboard/ContactActions";
 import { IconBack } from "@/components/icons";
 import { Stars } from "@/components/ui";
@@ -291,7 +292,7 @@ function Detail({ a, d, backHref }: { a: Access; d: NonNullable<Awaited<ReturnTy
           (r.archivedAt ? (
             <div className="toolbar">
               <form action={restoreReview}><input type="hidden" name="reviewId" value={r.id} /><button className="btn-ghost btn-sm" type="submit">Restore</button></form>
-              <form action={deleteReview}><input type="hidden" name="reviewId" value={r.id} /><button className="btn-danger btn-sm" type="submit">Delete permanently</button></form>
+              <form action={deleteReview}><input type="hidden" name="reviewId" value={r.id} /><ConfirmButton className="btn-danger btn-sm" message="Delete this review permanently? This cannot be undone.">Delete permanently</ConfirmButton></form>
             </div>
           ) : (
             <form action={archiveReview}><input type="hidden" name="reviewId" value={r.id} /><button className="btn-danger btn-sm" type="submit">Archive</button></form>

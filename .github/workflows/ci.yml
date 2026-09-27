@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: srp
+          POSTGRES_PASSWORD: srp
+          POSTGRES_DB: srp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U srp" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://srp:srp@localhost:5432/srp_test
+      APP_URL: http://localhost:3000
+      FIELD_ENCRYPTION_KEY: dGVzdC1vbmx5LWtleS0zMi1ieXRlcy1sb25nLTAwMDA=
+      HASH_SECRET: ci-only-hash-secret-0123456789abcdef
+      CRON_SECRET: ci-only-cron-secret-0123456789
+      PLATFORM_OWNER_EMAILS: owner@synergy.test
+      AI_PROVIDER: MOCK
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
