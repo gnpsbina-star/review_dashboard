@@ -184,17 +184,29 @@ model Branch {
 }
 
 model Staff {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId       String
-  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  name           String
-  active         Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  qrCodes        QrCode[]
-  reviews        Review[]
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId            String
+  branch              Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name                String
+  active              Boolean      @default(true)
+  // ID card details
+  designation         String?
+  employeeCode        String? // e.g. "KC-0007", unique within the account
+  bloodGroup          String?
+  emergencyContactEnc String? // AES-256-GCM, like customer phones
+  validUntil          DateTime?
+  photoStorage        String? // "r2" or "db"
+  photoKey            String?      @unique
+  photoVersion        Int          @default(0)
+  photoConsentAt      DateTime? // when the owner confirmed the employee agreed
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @default(now()) @updatedAt
+  qrCodes             QrCode[]
+  reviews             Review[]
 
+  @@unique([organizationId, employeeCode])
   @@index([branchId])
 }
 
@@ -346,8 +358,11 @@ model ReviewPhoto {
   @@index([organizationId])
 }
 
-model ReviewPhotoBlob {
+/// Private file bytes when R2 isn't configured (customer photos, staff photos).
+model StoredBlob {
   storageKey String   @id
   data       Bytes
   createdAt  DateTime @default(now())
+
+  @@map("ReviewPhotoBlob")
 }

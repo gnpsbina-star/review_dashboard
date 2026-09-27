@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["sharp"],
   experimental: {
-    serverActions: { bodySizeLimit: "3mb" },
+    serverActions: { bodySizeLimit: "4.5mb" },
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

@@ -13,6 +13,7 @@ import { createQrCode } from "@/lib/data/qr";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { slugify } from "@/lib/shortcode";
+import { nextEmployeeCode } from "@/lib/staff";
 
 const Id = z.string().regex(/^[a-z0-9]{10,40}$/);
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -226,7 +227,8 @@ export async function addStaff(form: FormData) {
   const br = await ownerBranch(a, form.get("branchId"));
   const name = text(40).safeParse(form.get("name"));
   if (!name.success) redirect(`/dashboard/branches/${br.id}?error=staff`);
-  const s = await db.staff.create({ data: { organizationId: a.org.id, branchId: br.id, name: name.data } });
+  const business = await db.business.findUniqueOrThrow({ where: { id: br.businessId }, select: { name: true } });
+  const s = await db.staff.create({ data: { organizationId: a.org.id, branchId: br.id, name: name.data, employeeCode: await nextEmployeeCode(a.org.id, business.name) } });
   await createQrCode(br, "STAFF", `staff:${s.id}`, { staffId: s.id });
   await log(a, "staff.create", "Staff", s.id);
   revalidatePath(`/dashboard/branches/${br.id}`);

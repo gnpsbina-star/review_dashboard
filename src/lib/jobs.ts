@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 import { shortDate } from "@/lib/format";
 import { deletePhotos } from "@/lib/photos";
 import { pruneRateLimits } from "@/lib/rate-limit";
+import { deleteOrgStaffPhotos } from "@/lib/staff";
 import { addDays, dueReminder, isServiceable, subscriptionInfo } from "@/lib/subscription";
 
 const DAY = 86_400_000;
@@ -103,6 +104,7 @@ export async function runSubscriptionJobs(now = new Date()) {
     if (info.state === "PURGE_DUE") {
       await audit({ organizationId: org.id, action: "organization.purge", entity: "Organization", entityId: org.id, meta: { name: org.name, lockedAt: info.locksAt?.toISOString() ?? null } });
       await deletePhotos({ organizationId: org.id }); // stored files first; rows cascade below
+      await deleteOrgStaffPhotos(org.id);
       await db.organization.delete({ where: { id: org.id } }); // cascades to all tenant data
       purged++;
     }

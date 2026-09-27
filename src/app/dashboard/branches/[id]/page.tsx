@@ -68,11 +68,13 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
         {br.staff.length > 0 && (
           <div className="tscroll">
             <table className="t">
-              <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Employee ID</th><th>ID card photo</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {br.staff.map((s) => (
                   <tr key={s.id}>
-                    <td><b>{s.name}</b></td>
+                    <td><Link href={`/dashboard/staff/${s.id}`}><b>{s.name}</b></Link>{s.designation ? <span className="help"> · {s.designation}</span> : null}</td>
+                    <td>{s.employeeCode ?? "–"}</td>
+                    <td>{s.photoKey ? "Added" : <Link href={`/dashboard/staff/${s.id}`}>Add photo</Link>}</td>
                     <td>{s.active ? "Active" : "Inactive"}</td>
                     <td className="r">
                       <form action={setStaffActive}>

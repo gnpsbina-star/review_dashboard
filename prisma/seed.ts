@@ -67,6 +67,16 @@ async function main() {
   const [ravi, sana] = await staff(ind.id, ["Ravi", "Sana"]);
   const [meena, arjun] = await staff(kor.id, ["Meena", "Arjun"]);
   const [farhan] = await staff(hsr.id, ["Farhan"]);
+  const roles: [typeof ravi, string, string, string][] = [
+    [ravi, "KC-0001", "Senior Waiter", "B+"],
+    [sana, "KC-0002", "Waiter", "O+"],
+    [meena, "KC-0003", "Floor Manager", "A+"],
+    [arjun, "KC-0004", "Waiter", "AB+"],
+    [farhan, "CB-0001", "Barista", "O-"],
+  ];
+  for (const [s, code, designation, bloodGroup] of roles) {
+    await db.staff.update({ where: { id: s.id }, data: { employeeCode: code, designation, bloodGroup, validUntil: new Date(now + 365 * DAY) } });
+  }
 
   const codes: Record<string, string> = {};
   for (const b of [ind, kor, hsr]) codes[b.id] = (await qr(org.id, b.id, "BRANCH", "branch")).id;

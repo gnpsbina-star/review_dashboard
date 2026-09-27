@@ -46,7 +46,7 @@ describe("complaint photos", () => {
     const photos = await db.reviewPhoto.findMany({ orderBy: { width: "desc" } });
     expect(photos).toHaveLength(2);
     expect(photos[0]).toMatchObject({ width: 1600, height: 1200, storage: "db" });
-    const blob = await db.reviewPhotoBlob.findUniqueOrThrow({ where: { storageKey: photos[0].storageKey } });
+    const blob = await db.storedBlob.findUniqueOrThrow({ where: { storageKey: photos[0].storageKey } });
     const meta = await sharp(Buffer.from(blob.data)).metadata();
     expect(meta.format).toBe("webp");
     expect(meta.exif).toBeUndefined();
@@ -107,7 +107,7 @@ describe("complaint photos", () => {
     await archiveReview(f).catch(() => undefined);
     await deleteReview(f).catch(() => undefined);
     expect(await db.reviewPhoto.count()).toBe(0);
-    expect(await db.reviewPhotoBlob.count()).toBe(0);
+    expect(await db.storedBlob.count()).toBe(0);
   });
 
   it("deletes photos after 12 months and when an account is purged", async () => {
@@ -115,15 +115,15 @@ describe("complaint photos", () => {
     const review = await db.review.findFirstOrThrow({ where: { comment: { contains: "dirty" } } });
     await db.review.update({ where: { id: review.id }, data: { createdAt: new Date(Date.now() - 400 * 86_400_000) } });
     expect((await runRetention()).photosDeleted).toBe(1);
-    expect(await db.reviewPhotoBlob.count()).toBe(0);
+    expect(await db.storedBlob.count()).toBe(0);
 
     const gone = await makeTenant("Gone", { periodEnd: new Date(Date.now() - 100 * 86_400_000) });
     const qr = await db.qrCode.findFirstOrThrow({ where: { organizationId: gone.org.id } });
     await db.subscription.update({ where: { organizationId: gone.org.id }, data: { currentPeriodEnd: new Date(Date.now() + 86_400_000) } });
     await send(qr.code, [{ name: "a.jpg", type: "image/jpeg", data: await jpegWithGps(400, 300) }]);
     await db.subscription.update({ where: { organizationId: gone.org.id }, data: { currentPeriodEnd: new Date(Date.now() - 100 * 86_400_000) } });
-    expect(await db.reviewPhotoBlob.count()).toBe(1);
+    expect(await db.storedBlob.count()).toBe(1);
     await runSubscriptionJobs();
-    expect(await db.reviewPhotoBlob.count()).toBe(0);
+    expect(await db.storedBlob.count()).toBe(0);
   });
 });

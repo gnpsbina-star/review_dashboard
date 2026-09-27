@@ -29,7 +29,7 @@ export async function putObject(key: string, data: Buffer, contentType: string):
     if (!res.ok) throw new Error(`R2 upload failed with HTTP ${res.status}`);
     return "r2";
   }
-  await db.reviewPhotoBlob.create({ data: { storageKey: key, data: new Uint8Array(data) } });
+  await db.storedBlob.create({ data: { storageKey: key, data: new Uint8Array(data) } });
   return "db";
 }
 
@@ -42,7 +42,7 @@ export async function getObject(backend: Backend, key: string): Promise<Buffer |
     if (!res.ok) throw new Error(`R2 download failed with HTTP ${res.status}`);
     return Buffer.from(await res.arrayBuffer());
   }
-  const blob = await db.reviewPhotoBlob.findUnique({ where: { storageKey: key } });
+  const blob = await db.storedBlob.findUnique({ where: { storageKey: key } });
   return blob ? Buffer.from(blob.data) : null;
 }
 
@@ -55,5 +55,5 @@ export async function deleteObjects(items: { storage: string; storageKey: string
       if (!res.ok && res.status !== 404) throw new Error(`R2 delete failed with HTTP ${res.status}`);
     }
   }
-  await db.reviewPhotoBlob.deleteMany({ where: { storageKey: { in: items.filter((i) => i.storage === "db").map((i) => i.storageKey) } } });
+  await db.storedBlob.deleteMany({ where: { storageKey: { in: items.filter((i) => i.storage === "db").map((i) => i.storageKey) } } });
 }
