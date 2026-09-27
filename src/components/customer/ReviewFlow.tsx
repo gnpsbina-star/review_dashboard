@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconCheck, IconCopy, IconHeart, IconLock, IconRefresh, STAR_PATH } from "@/components/icons";
+import { IconCamera, IconCheck, IconCopy, IconHeart, IconLock, IconRefresh, STAR_PATH } from "@/components/icons";
+import { shrinkPhoto } from "./shrinkPhoto";
 import { BusinessLogo } from "@/components/ui";
 import { ISSUE_KEYS, LANG_LABELS, normalizeIndianMobile, T, type UiLang } from "@/lib/customer-i18n";
 
@@ -25,6 +26,8 @@ export interface FlowProps {
 }
 
 type Step = "rate" | "positive" | "copied" | "negative" | "thanks";
+type Photo = { key: string; blob: Blob; url: string };
+const MAX_PHOTOS = 3;
 
 declare global {
   interface Window {
@@ -83,6 +86,37 @@ export function ReviewFlow(p: FlowProps) {
   const [errors, setErrors] = useState<{ comment?: boolean; phone?: boolean; server?: string }>({});
   const [sending, setSending] = useState(false);
   const [captcha, setCaptcha] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    setPhotoError(null);
+    const room = MAX_PHOTOS - photos.length;
+    if (files.length > room) setPhotoError(t.errPhotoCount);
+    setPreparing(true);
+    const added: Photo[] = [];
+    for (const file of Array.from(files).slice(0, room)) {
+      try {
+        const blob = await shrinkPhoto(file);
+        added.push({ key: crypto.randomUUID(), blob, url: URL.createObjectURL(blob) });
+      } catch {
+        setPhotoError(t.errPhotoType);
+      }
+    }
+    setPhotos((cur) => [...cur, ...added].slice(0, MAX_PHOTOS));
+    setPreparing(false);
+  }
+
+  function removePhoto(key: string) {
+    setPhotos((cur) => {
+      const gone = cur.find((x) => x.key === key);
+      if (gone) URL.revokeObjectURL(gone.url);
+      return cur.filter((x) => x.key !== key);
+    });
+    setPhotoError(null);
+  }
 
   const tier = (rating >= 5 ? 5 : 4) as 4 | 5;
   const pool = useMemo(
@@ -117,6 +151,9 @@ export function ReviewFlow(p: FlowProps) {
     setIssues([]);
     setComment("");
     setErrors({});
+    photos.forEach((ph) => URL.revokeObjectURL(ph.url));
+    setPhotos([]);
+    setPhotoError(null);
     go("rate");
   }
 
@@ -243,7 +280,7 @@ export function ReviewFlow(p: FlowProps) {
             <div className="done" style={{ paddingTop: 12 }}>
               <div className="done-ic"><IconCheck size={36} /></div>
               <h1 className="q q-sm">{copied.ok ? t.copH : t.copFail}</h1>
-              <ol className="steps"><li>{t.st1}</li><li>{t.st2}</li><li>{t.st3}</li></ol>
+              <ol className="steps"><li>{t.st1}</li><li>{t.st2}</li><li>{t.stPhoto}</li><li>{t.st3}</li></ol>
               <div className="copied-text">{copied.text}</div>
             </div>
           )}
@@ -263,6 +300,9 @@ export function ReviewFlow(p: FlowProps) {
               setPhone={setPhone}
               errors={errors}
               captchaSlot={p.turnstileSiteKey ? <Turnstile siteKey={p.turnstileSiteKey} onToken={setCaptcha} /> : null}
+              photoSlot={
+                <PhotoPicker t={t} photos={photos} preparing={preparing} error={photoError} onAdd={addPhotos} onRemove={removePhoto} />
+              }
             />
           )}
 
@@ -312,7 +352,7 @@ export function ReviewFlow(p: FlowProps) {
             <button
               type="button"
               className="btn-brand"
-              disabled={sending}
+              disabled={sending || preparing}
               onClick={async () => {
                 const next: typeof errors = {};
                 if (comment.trim().length < 10) next.comment = true;
@@ -325,27 +365,40 @@ export function ReviewFlow(p: FlowProps) {
                 }
                 setSending(true);
                 try {
-                  const res = await fetch("/api/public/feedback", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      code: p.code,
-                      rating,
-                      comment: comment.trim(),
-                      issues: issues.map((i) => ISSUE_KEYS[i]),
-                      name: name.trim(),
-                      phone: phone.trim(),
-                      turnstileToken: captcha ?? undefined,
-                      deviceToken: deviceToken(),
-                    }),
-                  });
+                  const payload = {
+                    code: p.code,
+                    rating,
+                    comment: comment.trim(),
+                    issues: issues.map((i) => ISSUE_KEYS[i]),
+                    name: name.trim(),
+                    phone: phone.trim(),
+                    turnstileToken: captcha ?? undefined,
+                    deviceToken: deviceToken(),
+                  };
+                  let init: RequestInit;
+                  if (photos.length) {
+                    const form = new FormData();
+                    form.set("data", JSON.stringify(payload));
+                    photos.forEach((ph, i) => form.append("photos", ph.blob, `photo-${i + 1}.jpg`));
+                    init = { method: "POST", body: form };
+                  } else {
+                    init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) };
+                  }
+                  const res = await fetch("/api/public/feedback", init);
                   if (res.ok) {
                     go("thanks");
                     return;
                   }
                   const data = (await res.json().catch(() => ({}))) as { error?: string };
                   setErrors({
-                    server: data.error === "limit" ? t.errLimit : data.error === "captcha" ? t.errCaptcha : data.error === "phone" ? t.errPhone : t.errGeneric,
+                    server:
+                      data.error === "limit" ? t.errLimit
+                      : data.error === "captcha" ? t.errCaptcha
+                      : data.error === "phone" ? t.errPhone
+                      : data.error === "photo-type" ? t.errPhotoType
+                      : data.error === "photo-size" ? t.errPhotoSize
+                      : data.error === "photo-count" ? t.errPhotoCount
+                      : t.errGeneric,
                   });
                   if (data.error === "captcha") window.turnstile?.reset();
                 } catch {
@@ -396,6 +449,7 @@ function ComplaintForm(props: {
   setPhone: (v: string) => void;
   errors: { comment?: boolean; phone?: boolean };
   captchaSlot: React.ReactNode;
+  photoSlot: React.ReactNode;
 }) {
   const { t, p } = props;
   return (
@@ -425,6 +479,7 @@ function ComplaintForm(props: {
         <textarea id="f-text" required maxLength={2000} value={props.comment} onChange={(e) => props.setComment(e.target.value)} aria-invalid={props.errors.comment || undefined} />
         {props.errors.comment && <span className="err">{t.errText}</span>}
       </div>
+      {props.photoSlot}
       <div className="field">
         <label htmlFor="f-name">{t.name} <span className="opt">{t.optional}</span></label>
         <input id="f-name" autoComplete="name" maxLength={80} value={props.name} onChange={(e) => props.setName(e.target.value)} />
@@ -477,4 +532,42 @@ function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (t: string 
     };
   }, [siteKey, onToken]);
   return <div ref={ref} />;
+}
+
+function PhotoPicker(props: { t: Strings; photos: Photo[]; preparing: boolean; error: string | null; onAdd: (f: FileList | null) => void; onRemove: (key: string) => void }) {
+  const { t } = props;
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="field">
+      <span className="label">{t.addPhotos} <span className="opt">{t.optional}</span></span>
+      <div className="photo-row">
+        {props.photos.map((ph, i) => (
+          <div key={ph.key} className="photo-thumb">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ph.url} alt={`${t.addPhotos} ${i + 1}`} />
+            <button type="button" aria-label={`${t.removePhoto} ${i + 1}`} onClick={() => props.onRemove(ph.key)}>×</button>
+          </div>
+        ))}
+        {props.photos.length < MAX_PHOTOS && (
+          <button type="button" className="photo-add" onClick={() => input.current?.click()} disabled={props.preparing}>
+            <IconCamera size={22} />
+            {props.preparing ? t.preparing : t.addPhotos}
+          </button>
+        )}
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        multiple
+        hidden
+        onChange={(e) => {
+          props.onAdd(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <span className="help">{t.photosHint}</span>
+      {props.error && <span className="err" role="alert">{props.error}</span>}
+    </div>
+  );
 }
