@@ -28,6 +28,7 @@ export default async function ReviewPage(props: PageProps<"/r/[code]">) {
     branchName: ctx.branch.name,
     cityArea: ctx.branch.cityArea,
     googleUrl: ctx.branch.googleReviewUrl,
+    facebookUrl: ctx.branch.facebookReviewUrl,
     brand,
   };
   if (!ctx.serviceable) return <LockedReviewPage {...common} />;

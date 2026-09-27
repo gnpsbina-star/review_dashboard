@@ -55,7 +55,7 @@ async function main() {
   const langs: SuggestionLang[] = ["en", "hi", "hinglish"];
   const mk = (businessId: string, name: string, slug: string, cityArea: string, highlights: string[]) =>
     db.branch.create({
-      data: { organizationId: org.id, businessId, name, slug, cityArea, languages: langs, highlights, googleReviewUrl: "https://search.google.com/local/writereview?placeid=DEMO_PLACE_ID", googlePlaceId: "DEMO_PLACE_ID" },
+      data: { organizationId: org.id, businessId, name, slug, cityArea, languages: langs, highlights, googleReviewUrl: "https://search.google.com/local/writereview?placeid=DEMO_PLACE_ID", googlePlaceId: "DEMO_PLACE_ID", facebookReviewUrl: "https://www.facebook.com/demo.page/reviews" },
     });
   const ind = await mk(kc.id, "Indiranagar", "kesar-clove-indiranagar", "Indiranagar, Bengaluru", ["filter coffee", "paneer tikka", "quick service"]);
   const kor = await mk(kc.id, "Koramangala", "kesar-clove-koramangala", "Koramangala, Bengaluru", ["biryani", "filter coffee", "family seating"]);

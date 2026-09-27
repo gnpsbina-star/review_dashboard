@@ -16,7 +16,11 @@ const Body = z.object({
   deviceToken: z.string().max(64).optional(),
 });
 
-/** Logs that a happy customer went to Google. We can't see whether they posted. */
+/**
+ * Logs that a happy customer went to the business's Facebook page. If they
+ * already went to Google in the last 30 minutes, the same visit is marked as
+ * shared on Facebook too (one customer, one rating). We can't see whether they posted.
+ */
 export async function POST(req: Request) {
   if (!isSameOrigin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
@@ -24,30 +28,28 @@ export async function POST(req: Request) {
   const b = parsed.data;
 
   const ctx = await loadQrContext(b.code);
-  if (!ctx || !ctx.serviceable) return NextResponse.json({ ok: true });
+  if (!ctx || !ctx.serviceable || !ctx.branch.facebookReviewUrl) return NextResponse.json({ ok: true });
 
   const ip = await clientIp();
   const ipHash = ip ? keyedHash(`ip:${ip}`) : null;
-  if (ipHash && !(await rateLimit(`google-ip:${ipHash}`, 300, 3_600_000))) return NextResponse.json({ ok: true });
+  if (ipHash && !(await rateLimit(`facebook-ip:${ipHash}`, 300, 3_600_000))) return NextResponse.json({ ok: true });
 
   const device = await deviceHashes(b.deviceToken);
-  // One logged visit per phone per branch every 30 minutes, so repeat taps don't inflate numbers.
-  const dup = await db.review.findFirst({
-    where: { source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] }, branchId: ctx.branch.id, deviceHash: { in: device.hashes }, createdAt: { gte: new Date(Date.now() - 30 * 60_000) } },
-    select: { id: true, source: true, facebookSharedAt: true, createdAt: true },
+  const since = new Date(Date.now() - 30 * 60_000);
+  const recent = await db.review.findFirst({
+    where: { source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] }, branchId: ctx.branch.id, deviceHash: { in: device.hashes }, createdAt: { gte: since } },
     orderBy: { createdAt: "desc" },
   });
-  if (dup?.source === "FACEBOOK_REDIRECT") {
-    // Went to Facebook first, now Google: record the visit as Google + Facebook.
-    await db.review.update({ where: { id: dup.id }, data: { source: "GOOGLE_REDIRECT", facebookSharedAt: dup.facebookSharedAt ?? dup.createdAt } });
-  } else if (!dup) {
+  if (recent?.source === "GOOGLE_REDIRECT") {
+    if (!recent.facebookSharedAt) await db.review.update({ where: { id: recent.id }, data: { facebookSharedAt: new Date() } });
+  } else if (!recent) {
     await db.review.create({
       data: {
         organizationId: ctx.org.id,
         branchId: ctx.branch.id,
         qrCodeId: ctx.qr.id,
         rating: b.rating,
-        source: "GOOGLE_REDIRECT",
+        source: "FACEBOOK_REDIRECT",
         comment: b.text || null,
         language: b.language ?? null,
         editedSuggestion: b.edited ?? null,

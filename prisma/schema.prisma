@@ -24,6 +24,7 @@ enum OrgStatus {
 enum ReviewSource {
   INTERCEPTED
   GOOGLE_REDIRECT
+  FACEBOOK_REDIRECT // happy customer went straight to Facebook (skipped Google)
 }
 
 enum ReviewStatus {
@@ -166,6 +167,7 @@ model Branch {
   cityArea               String
   googlePlaceId          String?
   googleReviewUrl        String
+  facebookReviewUrl      String? // optional; shows "Also share on Facebook"
   languages              SuggestionLang[]   @default([en])
   highlights             String[]           @default([])
   aiSettingsUpdatedAt    DateTime           @default(now())
@@ -252,6 +254,7 @@ model Review {
   staff            Staff?           @relation(fields: [staffId], references: [id], onDelete: SetNull)
   staffName        String? // snapshot at submission time
   editedSuggestion Boolean?
+  facebookSharedAt DateTime? // a Google-redirect customer also went on to Facebook
   ipHash           String?
   deviceHash       String?
   contactedAt      DateTime?

@@ -17,11 +17,12 @@ async function loadAnalytics(a: Access, days: number) {
   const scope = { ...reviewScope(a), createdAt: { gte: since } };
   const branchFilter = a.branchIds ? Prisma.sql`AND "branchId" IN (${Prisma.join(a.branchIds.length ? a.branchIds : ["-"])})` : Prisma.empty;
 
-  const [agg, prevAgg, mix, google, complaints, fastResolved, weekly, byStaff, staffComplaints, byBranch, branchComplaints] = await Promise.all([
+  const [agg, prevAgg, mix, google, facebook, complaints, fastResolved, weekly, byStaff, staffComplaints, byBranch, branchComplaints] = await Promise.all([
     db.review.aggregate({ where: scope, _avg: { rating: true }, _count: true }),
     db.review.aggregate({ where: { ...reviewScope(a), createdAt: { gte: prevSince, lt: since } }, _avg: { rating: true } }),
     db.review.groupBy({ by: ["rating"], where: scope, _count: true }),
     db.review.count({ where: { ...scope, source: "GOOGLE_REDIRECT" } }),
+    db.review.count({ where: { ...scope, OR: [{ source: "FACEBOOK_REDIRECT" }, { facebookSharedAt: { not: null } }] } }),
     db.review.count({ where: { ...scope, source: "INTERCEPTED" } }),
     db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*)::bigint AS n FROM "Review" WHERE "organizationId" = ${a.org.id} AND "archivedAt" IS NULL AND source = 'INTERCEPTED' AND "createdAt" >= ${since} AND "resolvedAt" IS NOT NULL AND "resolvedAt" - "createdAt" <= interval '24 hours' ${branchFilter}`,
     db.$queryRaw<{ week: Date; avg: number; n: bigint }[]>`SELECT date_trunc('week', "createdAt" AT TIME ZONE 'Asia/Kolkata') AS week, AVG(rating)::float AS avg, COUNT(*)::bigint AS n FROM "Review" WHERE "organizationId" = ${a.org.id} AND "archivedAt" IS NULL AND "createdAt" >= ${new Date(now - Math.max(days, 56) * DAY)} ${branchFilter} GROUP BY 1 ORDER BY 1`,
@@ -35,7 +36,7 @@ async function loadAnalytics(a: Access, days: number) {
     db.staff.findMany({ where: { organizationId: a.org.id, id: { in: byStaff.map((s) => s.staffId!) } }, select: { id: true, name: true } }),
     db.branch.findMany({ where: { organizationId: a.org.id, id: { in: byBranch.map((b) => b.branchId) } }, select: { id: true, name: true, business: { select: { name: true } } } }),
   ]);
-  return { agg, prevAgg, mix, google, complaints, fast: Number(fastResolved[0]?.n ?? 0), weekly, byStaff, staffComplaints, byBranch, branchComplaints, staff, branches };
+  return { agg, prevAgg, mix, google, facebook, complaints, fast: Number(fastResolved[0]?.n ?? 0), weekly, byStaff, staffComplaints, byBranch, branchComplaints, staff, branches };
 }
 
 export default async function AnalyticsPage(props: PageProps<"/dashboard/analytics">) {
@@ -82,7 +83,7 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
           <span className="stat-d">{delta === null ? `Last ${days} days` : `${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta).toFixed(1)} vs previous ${days} days`}</span>
         </div>
         <div className="stat"><span className="stat-l">Ratings received</span><span className="stat-v">{total}</span><span className="stat-d">Across all QR codes</span></div>
-        <div className="stat"><span className="stat-l">Sent to Google</span><span className="stat-v">{d.google}</span><span className="stat-d">Tapped Copy &amp; post or Write my own</span></div>
+        <div className="stat"><span className="stat-l">Sent to Google</span><span className="stat-v">{d.google}</span><span className="stat-d">{d.facebook} {d.facebook === 1 ? "customer" : "customers"} went to Facebook</span></div>
         <div className="stat">
           <span className="stat-l">Complaints resolved in 24 h</span>
           <span className="stat-v">{d.complaints ? `${Math.round((d.fast / d.complaints) * 100)}%` : "–"}</span>

@@ -17,6 +17,7 @@ export interface FlowProps {
   branchName: string;
   cityArea: string;
   googleUrl: string;
+  facebookUrl: string | null;
   brand: string;
   tableLabel: string | null;
   staffName: string | null;
@@ -49,6 +50,19 @@ function deviceToken(): string | undefined {
     return t;
   } catch {
     return undefined;
+  }
+}
+
+function logFacebookClick(body: Record<string, unknown>) {
+  try {
+    void fetch("/api/public/facebook-click", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, deviceToken: deviceToken() }),
+      keepalive: true,
+    });
+  } catch {
+    /* logging must never block the customer */
   }
 }
 
@@ -282,6 +296,7 @@ export function ReviewFlow(p: FlowProps) {
               <h1 className="q q-sm">{copied.ok ? t.copH : t.copFail}</h1>
               <ol className="steps"><li>{t.st1}</li><li>{t.st2}</li><li>{t.stPhoto}</li><li>{t.st3}</li></ol>
               <div className="copied-text">{copied.text}</div>
+              {p.facebookUrl && <p className="help">{t.alsoFbHint}</p>}
             </div>
           )}
 
@@ -339,11 +354,41 @@ export function ReviewFlow(p: FlowProps) {
             >
               {t.skip}
             </a>
+            {p.facebookUrl && (
+              <a
+                className="linkbtn"
+                style={{ justifySelf: "center" }}
+                href={p.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  const text = selectedSug ? selectedText.trim() : undefined;
+                  if (text) navigator.clipboard?.writeText(text).catch(() => undefined);
+                  logFacebookClick({ code: p.code, rating, text, language: selectedSug?.language, edited: selectedSug ? text !== selectedSug.text : undefined });
+                }}
+              >
+                {t.fbInstead}
+              </a>
+            )}
           </div>
         )}
         {step === "copied" && (
           <div className="dock">
             <a className="btn-brand" href={p.googleUrl} target="_blank" rel="noopener noreferrer">{t.openG}</a>
+            {p.facebookUrl && copied && (
+              <a
+                className="btn-quiet"
+                href={p.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  navigator.clipboard?.writeText(copied.text).catch(() => undefined);
+                  logFacebookClick({ code: p.code, rating, text: copied.text });
+                }}
+              >
+                {t.alsoFb}
+              </a>
+            )}
           </div>
         )}
         {step === "negative" && (
@@ -492,9 +537,16 @@ function ComplaintForm(props: {
         <span className="consent">{t.consent(p.businessName)}</span>
       </div>
       {props.captchaSlot}
-      <a className="linkbtn" style={{ alignSelf: "center", color: "var(--muted)" }} href={p.googleUrl} target="_blank" rel="noopener noreferrer">
-        {t.pub}
-      </a>
+      <div style={{ display: "grid", justifyItems: "center", gap: 2 }}>
+        <a className="linkbtn" style={{ color: "var(--muted)" }} href={p.googleUrl} target="_blank" rel="noopener noreferrer">
+          {t.pub}
+        </a>
+        {p.facebookUrl && (
+          <a className="linkbtn" style={{ color: "var(--muted)" }} href={p.facebookUrl} target="_blank" rel="noopener noreferrer">
+            {t.pubFb}
+          </a>
+        )}
+      </div>
     </>
   );
 }

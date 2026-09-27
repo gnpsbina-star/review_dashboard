@@ -132,9 +132,27 @@ const BranchInput = z.object({
   cityArea: text(100),
   googleReviewUrl: z.string().trim().max(500).refine((v) => isGoogleReviewUrlSync(v), "Use your Google review link"),
   googlePlaceId: optText(200),
+  facebookReviewUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((v) => v || null)
+    .refine((v) => v === null || isFacebookUrl(v), "Use your Facebook page link"),
   languages: z.array(z.enum(LANGS)).min(1),
   highlights: z.array(z.string().trim().min(1).max(40)).max(5),
 });
+
+const FACEBOOK_HOSTS = ["facebook.com", "www.facebook.com", "m.facebook.com", "fb.com", "www.fb.com", "fb.me"];
+/** Only real Facebook links are accepted for the optional Facebook button. */
+function isFacebookUrl(v: string) {
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" && FACEBOOK_HOSTS.includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
 
 /** Only real Google review links are accepted, so a QR can never send customers elsewhere. */
 function isGoogleReviewUrlSync(v: string) {
@@ -152,6 +170,7 @@ function branchFields(form: FormData) {
     cityArea: form.get("cityArea") ?? undefined,
     googleReviewUrl: form.get("googleReviewUrl") ?? undefined,
     googlePlaceId: form.get("googlePlaceId") ?? undefined,
+    facebookReviewUrl: form.get("facebookReviewUrl") ?? undefined,
     languages: form.getAll("languages").map(String),
     highlights: String(form.get("highlights") ?? "")
       .split(/[,\n]/)

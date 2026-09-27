@@ -16,7 +16,7 @@ const MESSAGES: Record<string, string> = {
   "error:staff-consent": "Please confirm the employee agreed to their photo being used on the ID card.",
   "error:staff-photo-size": "That photo is larger than 4 MB. Please choose a smaller file.",
   "error:business": "Check the business details: name, category and tone are required, and the colour must be a hex value like #0E6B63.",
-  "error:branch": "Check the branch details: name, area, a Google review link (https://…google…) and at least one language are required.",
+  "error:branch": "Check the branch details: name, area, a Google review link (https://…google…) and at least one language are required. The Facebook link, if given, must be a facebook.com address.",
   "error:branch-limit": "Your plan’s branch limit is reached. Contact Synergy Technologies to upgrade.",
   "error:logo-missing": "Choose an image file first.",
   "error:logo-size": "That image is larger than 2 MB. Please choose a smaller file.",

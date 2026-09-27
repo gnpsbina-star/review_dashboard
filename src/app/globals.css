@@ -126,6 +126,7 @@ button:disabled { cursor: not-allowed; }
 .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
 .badge.private { background: var(--crit-soft); color: var(--crit); }
 .badge.google { background: var(--good-soft); color: var(--good); }
+.badge.facebook { background: color-mix(in srgb, #1877f2 14%, var(--surface)); color: color-mix(in srgb, #1877f2 80%, var(--ink)); }
 .pill { font-size: 12px; font-weight: 600; padding: 2px 9px 2px 7px; border-radius: 999px; display: inline-flex; gap: 5px; align-items: center; border: 1px solid transparent; white-space: nowrap; }
 .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .pill.NEW { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 35%, transparent); }

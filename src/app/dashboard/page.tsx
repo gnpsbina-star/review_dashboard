@@ -67,7 +67,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
           <div className="stat"><span className="stat-l">New complaints</span><span className={`stat-v ${newCount ? "crit" : ""}`}>{newCount}</span><span className="stat-d">Waiting for a reply</span></div>
           <div className="stat"><span className="stat-l">Waiting over 1 day</span><span className={`stat-v ${escalatedCount ? "crit" : ""}`}>{escalatedCount}</span><span className="stat-d">Owners are alerted</span></div>
           <div className="stat"><span className="stat-l">Average rating</span><span className="stat-v">{avg._avg.rating ? avg._avg.rating.toFixed(1) : "–"}</span><span className="stat-d">Last 30 days</span></div>
-          <div className="stat"><span className="stat-l">Sent to Google</span><span className="stat-v">{google30}</span><span className="stat-d">Last 30 days</span></div>
+          <div className="stat"><span className="stat-l">Sent to Google / Facebook</span><span className="stat-v">{google30}</span><span className="stat-d">Last 30 days</span></div>
         </div>
       )}
 
@@ -75,7 +75,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
         <div className="seg" role="group" aria-label="Type">
           <Link href={href(sp, { type: undefined, before: undefined, review: undefined })} aria-current={!type}>All</Link>
           <Link href={href(sp, { type: "private", before: undefined, review: undefined })} aria-current={type === "private"}>Private complaints</Link>
-          <Link href={href(sp, { type: "google", status: undefined, before: undefined, review: undefined })} aria-current={type === "google"}>Sent to Google</Link>
+          <Link href={href(sp, { type: "google", status: undefined, before: undefined, review: undefined })} aria-current={type === "google"}>Sent to Google / Facebook</Link>
         </div>
         <form className="toolbar" action="/dashboard">
           {type && <input type="hidden" name="type" value={type} />}
@@ -119,7 +119,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
                     {r.status === "NEW" && r.escalatedAt && <span className="pill esc">Escalated</span>}
                   </>
                 ) : (
-                  <span className="badge google">Sent to Google</span>
+                  <PublicBadge source={r.source} facebook={!!r.facebookSharedAt} />
                 )}
                 {r._count.photos > 0 && <span className="row-photos" aria-label={`${r._count.photos} photos`}><IconCamera size={14} /> {r._count.photos}</span>}
                 <time dateTime={r.createdAt.toISOString()} title={exactTime(r.createdAt)}>{relativeTime(r.createdAt)}</time>
@@ -150,7 +150,7 @@ async function loadFeed(a: Access, f: { type?: string; status?: string; biz?: st
   const where: Prisma.ReviewWhereInput = {
     ...scope,
     ...(archivedView ? { archivedAt: { not: null } } : {}),
-    ...(type === "private" ? { source: "INTERCEPTED" } : type === "google" ? { source: "GOOGLE_REDIRECT" } : {}),
+    ...(type === "private" ? { source: "INTERCEPTED" } : type === "google" ? { source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] } } : {}),
     ...(status && ["NEW", "CONTACTED", "RESOLVED"].includes(status) ? { source: "INTERCEPTED", status: status as "NEW" } : {}),
     ...(biz ? { branch: { businessId: biz } } : {}),
     ...(before && !Number.isNaN(Date.parse(before)) ? { createdAt: { lt: new Date(before) } } : {}),
@@ -172,9 +172,19 @@ async function loadFeed(a: Access, f: { type?: string; status?: string; biz?: st
     db.review.count({ where: { ...scope, source: "INTERCEPTED", status: "NEW" } }),
     db.review.count({ where: { ...scope, source: "INTERCEPTED", status: "NEW", createdAt: { lt: new Date(Date.now() - DAY) } } }),
     db.review.aggregate({ where: { ...scope, createdAt: { gte: since30 } }, _avg: { rating: true } }),
-    db.review.count({ where: { ...scope, source: "GOOGLE_REDIRECT", createdAt: { gte: since30 } } }),
+    db.review.count({ where: { ...scope, source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] }, createdAt: { gte: since30 } } }),
   ]);
   return { rows, businesses, newCount, escalatedCount, avg, google30 };
+}
+
+function PublicBadge({ source, facebook }: { source: string; facebook: boolean }) {
+  if (source === "FACEBOOK_REDIRECT") return <span className="badge facebook">Sent to Facebook</span>;
+  return (
+    <>
+      <span className="badge google">Sent to Google</span>
+      {facebook && <span className="badge facebook">+ Facebook</span>}
+    </>
+  );
 }
 
 function meta(biz: string, branch: string, table: string | null, staff: string | null) {
@@ -210,14 +220,14 @@ function Detail({ a, d, backHref }: { a: Access; d: NonNullable<Awaited<ReturnTy
         <div className="d-title">
           <Stars n={r.rating} size={20} />
           <strong style={{ fontSize: 17 }}>{r.rating} out of 5</strong>
-          {r.source === "INTERCEPTED" ? <span className="badge private">Private complaint</span> : <span className="badge google">Sent to Google</span>}
+          {r.source === "INTERCEPTED" ? <span className="badge private">Private complaint</span> : <PublicBadge source={r.source} facebook={!!r.facebookSharedAt} />}
           {r.status === "NEW" && r.escalatedAt && <span className="pill esc">Escalated to owner</span>}
         </div>
         <div className="d-meta">{meta(biz, r.branch.name, r.tableLabel, r.staffName)}</div>
         <div className="d-meta num">{relativeTime(r.createdAt)} — {exactTime(r.createdAt)}</div>
       </div>
 
-      {r.source === "GOOGLE_REDIRECT" ? (
+      {r.source !== "INTERCEPTED" ? (
         <>
           {r.comment ? (
             <>
@@ -225,9 +235,12 @@ function Detail({ a, d, backHref }: { a: Access; d: NonNullable<Awaited<ReturnTy
               <p className="quote">{r.comment}</p>
             </>
           ) : (
-            <p className="muted">The customer chose to write their own review on Google.</p>
+            <p className="muted">The customer chose to write their own review.</p>
           )}
-          <div className="info">The customer tapped through to Google. We can’t confirm the review was published until Google review import arrives.</div>
+          <div className="info">
+            {r.source === "FACEBOOK_REDIRECT" ? "The customer tapped through to your Facebook page." : r.facebookSharedAt ? "The customer tapped through to Google, then also to your Facebook page." : "The customer tapped through to Google."}{" "}
+            We can’t see whether they actually posted.
+          </div>
         </>
       ) : (
         <>

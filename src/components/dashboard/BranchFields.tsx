@@ -1,4 +1,4 @@
-export function BranchFields({ br }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; languages: string[]; highlights: string[] } }) {
+export function BranchFields({ br }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; facebookReviewUrl?: string | null; languages: string[]; highlights: string[] } }) {
   const langs = br?.languages ?? ["en", "hi", "hinglish"];
   return (
     <div className="form-grid">
@@ -8,6 +8,11 @@ export function BranchFields({ br }: { br?: { name: string; cityArea: string; go
         <label htmlFor="br-url">Google review link</label>
         <input id="br-url" name="googleReviewUrl" type="url" required maxLength={500} placeholder="https://search.google.com/local/writereview?placeid=…" defaultValue={br?.googleReviewUrl} />
         <span className="help">In Google Business Profile, choose “Ask for reviews” and copy the link. Only Google links are accepted.</span>
+      </div>
+      <div className="field full">
+        <label htmlFor="br-fb">Facebook page link <span className="opt">(optional)</span></label>
+        <input id="br-fb" name="facebookReviewUrl" type="url" maxLength={500} placeholder="https://www.facebook.com/yourpage/reviews" defaultValue={br?.facebookReviewUrl ?? ""} />
+        <span className="help">Adds “Also share on Facebook” for happy customers. Use your page’s Reviews link. Only Facebook links are accepted.</span>
       </div>
       <div className="field"><label htmlFor="br-place">Google Place ID <span className="opt">(optional)</span></label><input id="br-place" name="googlePlaceId" maxLength={200} defaultValue={br?.googlePlaceId ?? ""} /></div>
       <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
