@@ -7,7 +7,7 @@ A multi-tenant SaaS by **Synergy Technologies** that helps businesses collect mo
 - **Clients** manage several businesses and branches, reply on WhatsApp, track resolution, see analytics, print permanent QR codes, and print employee ID cards (standard CR80 size) with each person’s review QR code on the back.
 - **You (platform owner)** create client accounts and renew yearly plans. Accounts lock automatically when a plan ends.
 
-Documents: [final specification](docs/SPEC.md) · [approved design preview](docs/design-preview.html) · [original draft](docs/ORIGINAL_SPEC.md)
+Documents: [going live checklist](docs/DEPLOY.md) · [final specification](docs/SPEC.md) · [approved design preview](docs/design-preview.html) · [original draft](docs/ORIGINAL_SPEC.md)
 
 ---
 
