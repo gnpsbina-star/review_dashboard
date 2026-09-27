@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Flash } from "@/components/dashboard/Flash";
 import { initials } from "@/components/ui";
-import { removeStaffPhoto, updateStaff, uploadStaffPhoto } from "../actions";
+import { removeStaffPhoto, updateStaff } from "../actions";
+import { StaffPhotoEditor } from "@/components/dashboard/StaffPhotoEditor";
+import { readableBrandColor } from "@/lib/contrast";
 import { setStaffActive } from "../../businesses/actions";
 import { requireAccess } from "@/lib/access";
 import { decryptField } from "@/lib/crypto";
@@ -47,14 +49,8 @@ export default async function StaffPage(props: PageProps<"/dashboard/staff/[id]"
             )}
           </div>
           <div style={{ display: "grid", gap: 10, flex: 1, minWidth: 240 }}>
-            <form action={uploadStaffPhoto} style={{ display: "grid", gap: 10 }}>
-              <input type="hidden" name="staffId" value={s.id} />
-              <label className="sr-only" htmlFor="staff-photo">Photo</label>
-              <input id="staff-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required />
-              <label className="check"><input type="checkbox" name="consent" required /> {s.name} agreed to their photo being used on their ID card.</label>
-              <button className="btn-ghost" type="submit" style={{ justifySelf: "start" }}>{s.photoKey ? "Replace photo" : "Upload photo"}</button>
-            </form>
-            <p className="help">A clear, front-facing photo works best. JPG, PNG or WebP up to 4 MB. It’s cropped to a passport-style portrait, and only Client Owners can see it.</p>
+            <StaffPhotoEditor staffId={s.id} staffName={s.name} brandColor={readableBrandColor(s.branch.business.brandColor).color} hasPhoto={!!s.photoKey} />
+            <p className="help">A clear, front-facing photo works best. JPG, PNG or WebP up to 4 MB. Auto-enhance runs on this device: the photo isn’t sent anywhere until you save it. Only Client Owners can see saved photos.</p>
             {s.photoKey && (
               <form action={removeStaffPhoto}><input type="hidden" name="staffId" value={s.id} /><button className="linkbtn" type="submit">Remove photo</button></form>
             )}

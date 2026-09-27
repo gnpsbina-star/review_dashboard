@@ -48,3 +48,6 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# copied from node_modules by scripts/copy-mediapipe.mjs
+/public/mediapipe/

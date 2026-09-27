@@ -101,6 +101,7 @@ When you buy your own domain later, point it at Vercel, update `APP_URL` (in Ver
 - The server scopes every query to the signed-in client account, and branch admins to their assigned branches (`src/lib/access.ts`). Integration tests cover cross-client attempts.
 - Google sign-in only, invite-only whitelist, sessions stored hashed in the database, `__Host-` secure cookies, and immediate revocation.
 - Customer phone numbers and emails are encrypted (AES-256-GCM). IPs and device ids are stored only as keyed hashes. Contact details and photos are deleted after 12 months.
+- Staff photo Auto-enhance (face-centred crop, lighting and colour fix, plain background) runs entirely in the browser with Google’s on-device MediaPipe models served from our own domain; photos aren’t sent to any AI service. WebAssembly is allowed only on staff pages.
 - Customer photos: checked by file bytes, re-encoded (removing GPS and other metadata), stored privately, and shown only to people who can see that complaint.
 - Nonce-based Content Security Policy, HSTS, frame blocking and other security headers. No raw HTML rendering.
 - Server-side validation of every input with Zod. Logos must be PNG, JPG or WebP (checked from the file bytes) and are re-encoded; SVG uploads are refused.
