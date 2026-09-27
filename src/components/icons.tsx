@@ -34,5 +34,6 @@ export const NavIcons = {
   businesses: (p: P) => <svg {...base(p.size)}><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" /></svg>,
   team: (p: P) => <svg {...base(p.size)}><circle cx="9" cy="8" r="4" /><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3" /></svg>,
   clients: (p: P) => <svg {...base(p.size)}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M8 15h3" /></svg>,
+  idcard: (p: P) => <svg {...base(p.size)}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="11" r="2.5" /><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3" /></svg>,
   settings: (p: P) => <svg {...base(p.size)}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></svg>,
 };

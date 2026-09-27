@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Flash } from "@/components/dashboard/Flash";
 import { initials } from "@/components/ui";
 import { removeStaffPhoto, updateStaff } from "../actions";
+import { prepareIdCards } from "../../id-cards/actions";
 import { StaffPhotoEditor } from "@/components/dashboard/StaffPhotoEditor";
 import { readableBrandColor } from "@/lib/contrast";
 import { setStaffActive } from "../../businesses/actions";
@@ -34,6 +35,13 @@ export default async function StaffPage(props: PageProps<"/dashboard/staff/[id]"
           <h1>{s.name}</h1>
           <div className="who">{s.employeeCode ?? "No employee ID yet"} · {s.active ? "Active" : "Inactive"}</div>
         </div>
+        {s.active && (
+          <form action={prepareIdCards} className="toolbar">
+            <input type="hidden" name="staffIds" value={s.id} />
+            <input type="hidden" name="layout" value="single" />
+            <button className="btn" type="submit">Print ID card</button>
+          </form>
+        )}
       </div>
       <Flash sp={sp} />
 

@@ -4,7 +4,7 @@ A multi-tenant SaaS by **Synergy Technologies** that helps businesses collect mo
 
 - **4–5★ customers** pick an AI-written suggestion (English, Hindi or Hinglish), edit it, and post it on Google with one tap.
 - **1–3★ customers** send feedback privately to the branch manager first, with up to 3 photos if they like. A smaller “Review us on Google” link stays visible to everyone.
-- **Clients** manage several businesses and branches, reply on WhatsApp, track resolution, see analytics, and print permanent QR codes.
+- **Clients** manage several businesses and branches, reply on WhatsApp, track resolution, see analytics, print permanent QR codes, and print employee ID cards (standard CR80 size) with each person’s review QR code on the back.
 - **You (platform owner)** create client accounts and renew yearly plans. Accounts lock automatically when a plan ends.
 
 Documents: [final specification](docs/SPEC.md) · [approved design preview](docs/design-preview.html) · [original draft](docs/ORIGINAL_SPEC.md)

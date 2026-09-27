@@ -28,6 +28,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         ...(owner
           ? ([
               { href: "/dashboard/qr", label: "QR studio", icon: "qr" },
+              { href: "/dashboard/id-cards", label: "ID cards", icon: "idcard" },
               { href: "/dashboard/businesses", label: "Businesses & branches", icon: "businesses" },
               { href: "/dashboard/team", label: "Team", icon: "team" },
             ] as NavItem[])
