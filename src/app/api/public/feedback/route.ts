@@ -4,6 +4,7 @@ import { sendComplaintAlert } from "@/lib/alerts";
 import { encryptField, keyedHash } from "@/lib/crypto";
 import { ISSUE_KEYS, normalizeIndianMobile } from "@/lib/customer-i18n";
 import { loadQrContext } from "@/lib/data/customer";
+import { cleanPhotos, MAX_TOTAL_BYTES, savePhotos, type CleanPhoto } from "@/lib/photos";
 import { db } from "@/lib/db";
 import { DEVICE_COOKIE, deviceCookieOptions, deviceHashes } from "@/lib/device";
 import { rateLimit } from "@/lib/rate-limit";
@@ -25,10 +26,31 @@ function error(code: string, status: number) {
   return NextResponse.json({ error: code }, { status });
 }
 
-/** Private 1–3★ feedback. Saved for the branch team; never sent to Google. */
+/** Reads JSON, or multipart form data with a "data" JSON field plus up to 3 "photos". */
+async function readBody(req: Request): Promise<{ data: unknown; files: File[] } | null> {
+  const type = req.headers.get("content-type") ?? "";
+  if (type.startsWith("multipart/form-data")) {
+    const length = Number(req.headers.get("content-length") ?? 0);
+    if (length > MAX_TOTAL_BYTES + 64 * 1024) return null;
+    const form = await req.formData().catch(() => null);
+    if (!form) return null;
+    let data: unknown = null;
+    try {
+      data = JSON.parse(String(form.get("data") ?? ""));
+    } catch {
+      return null;
+    }
+    return { data, files: form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0) };
+  }
+  return { data: await req.json().catch(() => null), files: [] };
+}
+
+/** Private 1–3★ feedback, optionally with photos. Saved for the branch team; never sent to Google. */
 export async function POST(req: Request) {
   if (!isSameOrigin(req)) return error("forbidden", 403);
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  const body = await readBody(req);
+  if (!body) return error("photo-size", 413);
+  const parsed = Body.safeParse(body.data);
   if (!parsed.success) return error("invalid", 400);
   const b = parsed.data;
 
@@ -43,6 +65,13 @@ export async function POST(req: Request) {
   const ipHash = ip ? keyedHash(`ip:${ip}`) : null;
   if (ipHash && !(await rateLimit(`complaint-ip:${ipHash}`, 50, 3_600_000))) return error("limit", 429);
   if (!(await verifyTurnstile(b.turnstileToken, ip))) return error("captcha", 400);
+
+  let photos: CleanPhoto[] = [];
+  if (body.files.length) {
+    const cleaned = await cleanPhotos(body.files);
+    if (!cleaned.ok) return error(cleaned.error, 400);
+    photos = cleaned.photos;
+  }
 
   const device = await deviceHashes(b.deviceToken);
   // One complaint per phone per business within the business's limit (2 hours by default).
@@ -73,6 +102,10 @@ export async function POST(req: Request) {
     select: { id: true },
   });
   await db.rateLimitHit.createMany({ data: deviceKeys.map((key) => ({ key })) });
+  if (photos.length) {
+    // The written complaint matters most: if storing photos fails, keep the complaint and log it.
+    await savePhotos(ctx.org.id, review.id, photos).catch((e) => console.error("[photos] save failed", e instanceof Error ? e.message : e));
+  }
 
   after(() => sendComplaintAlert(review.id).catch((e) => console.error("[alert] failed", e instanceof Error ? e.message : e)));
 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { actorName, ORG_COOKIE, requireAccess, requireUser, reviewScope, type Access } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { deletePhotos } from "@/lib/photos";
 
 const Id = z.string().regex(/^[a-z0-9]{10,40}$/);
 
@@ -113,6 +114,7 @@ export async function deleteReview(form: FormData) {
   if (!id.success) notFound();
   const review = await db.review.findFirst({ where: { id: id.data, organizationId: a.org.id, archivedAt: { not: null } } });
   if (!review) notFound();
+  await deletePhotos({ reviewId: review.id });
   await db.review.delete({ where: { id: review.id } });
   await audit({ organizationId: a.org.id, actorUserId: a.user.id, actorEmail: a.user.email, action: "review.delete", entity: "Review", entityId: review.id });
   revalidatePath("/dashboard", "layout");

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import { shortDate } from "@/lib/format";
+import { deletePhotos } from "@/lib/photos";
 import { pruneRateLimits } from "@/lib/rate-limit";
 import { addDays, dueReminder, isServiceable, subscriptionInfo } from "@/lib/subscription";
 
@@ -101,6 +102,7 @@ export async function runSubscriptionJobs(now = new Date()) {
 
     if (info.state === "PURGE_DUE") {
       await audit({ organizationId: org.id, action: "organization.purge", entity: "Organization", entityId: org.id, meta: { name: org.name, lockedAt: info.locksAt?.toISOString() ?? null } });
+      await deletePhotos({ organizationId: org.id }); // stored files first; rows cascade below
       await db.organization.delete({ where: { id: org.id } }); // cascades to all tenant data
       purged++;
     }
@@ -111,6 +113,8 @@ export async function runSubscriptionJobs(now = new Date()) {
 /** DPDP retention: customer names and contact details go after 12 months. Also clears expired technical data. */
 export async function runRetention(now = new Date()) {
   const cutoff = addDays(now, -365);
+  const oldWithPhotos = await db.review.findMany({ where: { createdAt: { lt: cutoff }, photos: { some: {} } }, select: { id: true }, take: 1000 });
+  const photosDeleted = oldWithPhotos.length ? await deletePhotos({ reviewIds: oldWithPhotos.map((r) => r.id) }) : 0;
   const pii = await db.review.updateMany({
     where: { createdAt: { lt: cutoff }, piiPurgedAt: null },
     data: { customerName: null, customerPhoneEnc: null, customerEmailEnc: null, ipHash: null, deviceHash: null, piiPurgedAt: now },
@@ -118,7 +122,7 @@ export async function runRetention(now = new Date()) {
   const sessions = await db.session.deleteMany({ where: { expiresAt: { lt: now } } });
   await pruneRateLimits();
   await db.emailLog.deleteMany({ where: { createdAt: { lt: addDays(now, -90) } } });
-  return { piiPurged: pii.count, sessionsDeleted: sessions.count };
+  return { piiPurged: pii.count, photosDeleted, sessionsDeleted: sessions.count };
 }
 
 /** Weekly suggestion refresh, a few branches per run to stay inside free AI limits. */

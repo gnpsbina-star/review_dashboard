@@ -23,6 +23,12 @@ const schema = z
     TURNSTILE_SITE_KEY: z.string().optional(),
     TURNSTILE_SECRET_KEY: z.string().optional(),
 
+    // Cloudflare R2 for customer photos. Without these, photos are stored in the database.
+    R2_ACCOUNT_ID: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_BUCKET: z.string().optional(),
+
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default("Smart Review <alerts@example.com>"),
 

@@ -84,6 +84,7 @@ model Organization {
   reviews      Review[]
   notes        ResolutionNote[]
   suggestions  AiSuggestion[]
+  photos       ReviewPhoto[]
 }
 
 model Subscription {
@@ -249,6 +250,7 @@ model Review {
   piiPurgedAt      DateTime?
   createdAt        DateTime         @default(now())
   notes            ResolutionNote[]
+  photos           ReviewPhoto[]
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([branchId, createdAt(sort: Desc)])
@@ -323,4 +325,29 @@ model PlatformSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+/// Customer photo attached to a private complaint. Bytes live in Cloudflare R2
+/// (or in ReviewPhotoBlob when R2 isn't configured, e.g. local development).
+model ReviewPhoto {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewId       String
+  review         Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  storage        String // "r2" or "db"
+  storageKey     String       @unique
+  bytes          Int
+  width          Int
+  height         Int
+  createdAt      DateTime     @default(now())
+
+  @@index([reviewId])
+  @@index([organizationId])
+}
+
+model ReviewPhotoBlob {
+  storageKey String   @id
+  data       Bytes
+  createdAt  DateTime @default(now())
 }
