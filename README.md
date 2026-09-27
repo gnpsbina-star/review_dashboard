@@ -3,7 +3,7 @@
 A multi-tenant SaaS by **Synergy Technologies** that helps businesses collect more positive Google reviews and fix complaints privately.
 
 - **4–5★ customers** pick an AI-written suggestion (English, Hindi or Hinglish), edit it, and post it on Google with one tap.
-- **1–3★ customers** send feedback privately to the branch manager first. A smaller “Review us on Google” link stays visible to everyone.
+- **1–3★ customers** send feedback privately to the branch manager first, with up to 3 photos if they like. A smaller “Review us on Google” link stays visible to everyone.
 - **Clients** manage several businesses and branches, reply on WhatsApp, track resolution, see analytics, and print permanent QR codes.
 - **You (platform owner)** create client accounts and renew yearly plans. Accounts lock automatically when a plan ends.
 
@@ -21,6 +21,7 @@ Documents: [final specification](docs/SPEC.md) · [approved design preview](docs
 | Email | Resend |
 | AI | Gemini (default), Claude or ChatGPT, switchable; offline templates as fallback |
 | Captcha | Cloudflare Turnstile |
+| Customer photos | Cloudflare R2 (private; database fallback in development) |
 | QR address | Cloudflare Worker (`worker/`) |
 | Scheduled jobs | GitHub Actions calling `/api/cron/*` |
 | Hosting | Vercel (Hobby while piloting, Pro or Cloudflare once paid) |
@@ -86,6 +87,7 @@ You create these free accounts yourself. **Put keys only in the hosting settings
 3. **Resend** (email): verify a sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`.
 4. **Cloudflare Turnstile** (captcha): add a site and set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
 5. **Google AI Studio** (Gemini): create an API key and set `GEMINI_API_KEY`.
+   - **Cloudflare R2** (customer photos): create a private bucket (no public access) and an API token with Object Read & Write for that bucket. Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET`.
 6. **Secrets**: generate `FIELD_ENCRYPTION_KEY` with `openssl rand -base64 32`, and `HASH_SECRET` and `CRON_SECRET` with `openssl rand -base64 48`. Keep a safe offline copy of `FIELD_ENCRYPTION_KEY`: without it, stored phone numbers can’t be read.
 7. **Vercel**: import this GitHub repo, add all variables from `.env.example`, and set `APP_URL`. The build runs `prisma generate`. Run `npx prisma migrate deploy` against the production database once, and after each schema change.
 8. **Cloudflare Worker** (permanent QR address): in `worker/wrangler.toml` set `APP_URL` to the app’s address, then run `cd worker && npx wrangler deploy`. Put the worker URL (e.g. `https://go.synergytech.workers.dev`) in `QR_BASE_URL` **before printing any QR codes**.
@@ -98,7 +100,8 @@ When you buy your own domain later, point it at Vercel, update `APP_URL` (in Ver
 
 - The server scopes every query to the signed-in client account, and branch admins to their assigned branches (`src/lib/access.ts`). Integration tests cover cross-client attempts.
 - Google sign-in only, invite-only whitelist, sessions stored hashed in the database, `__Host-` secure cookies, and immediate revocation.
-- Customer phone numbers and emails are encrypted (AES-256-GCM). IPs and device ids are stored only as keyed hashes. Contact details are deleted after 12 months.
+- Customer phone numbers and emails are encrypted (AES-256-GCM). IPs and device ids are stored only as keyed hashes. Contact details and photos are deleted after 12 months.
+- Customer photos: checked by file bytes, re-encoded (removing GPS and other metadata), stored privately, and shown only to people who can see that complaint.
 - Nonce-based Content Security Policy, HSTS, frame blocking and other security headers. No raw HTML rendering.
 - Server-side validation of every input with Zod. Logos must be PNG, JPG or WebP (checked from the file bytes) and are re-encoded; SVG uploads are refused.
 - Turnstile captcha and database-backed rate limits on public endpoints.

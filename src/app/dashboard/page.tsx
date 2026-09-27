@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ConfirmButton } from "@/components/dashboard/ConfirmButton";
 import { ContactActions } from "@/components/dashboard/ContactActions";
-import { IconBack } from "@/components/icons";
+import { PhotoGallery } from "@/components/dashboard/PhotoGallery";
+import { IconBack, IconCamera } from "@/components/icons";
 import { Stars } from "@/components/ui";
 import { addNote, archiveReview, deleteReview, restoreReview, setReviewStatus } from "./actions";
 import { requireAccess, reviewScope, type Access } from "@/lib/access";
@@ -120,6 +121,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
                 ) : (
                   <span className="badge google">Sent to Google</span>
                 )}
+                {r._count.photos > 0 && <span className="row-photos" aria-label={`${r._count.photos} photos`}><IconCamera size={14} /> {r._count.photos}</span>}
                 <time dateTime={r.createdAt.toISOString()} title={exactTime(r.createdAt)}>{relativeTime(r.createdAt)}</time>
               </div>
               <div className="row-meta">{meta(r.branch.business.name, r.branch.name, r.tableLabel, r.staffName)}</div>
@@ -160,7 +162,7 @@ async function loadFeed(a: Access, f: { type?: string; status?: string; biz?: st
       where,
       orderBy: { createdAt: "desc" },
       take: PAGE + 1,
-      include: { branch: { select: { name: true, business: { select: { name: true } } } } },
+      include: { branch: { select: { name: true, business: { select: { name: true } } } }, _count: { select: { photos: true } } },
     }),
     db.business.findMany({
       where: { organizationId: a.org.id, archivedAt: null, ...(a.branchIds ? { branches: { some: { id: { in: a.branchIds } } } } : {}) },
@@ -183,7 +185,7 @@ async function loadDetail(a: Access, id: string, archived: boolean) {
   if (!/^[a-z0-9]{10,40}$/.test(id)) return null;
   const review = await db.review.findFirst({
     where: { id, ...reviewScope(a), ...(archived ? { archivedAt: { not: null } } : {}) },
-    include: { branch: { include: { business: true } }, notes: { orderBy: { createdAt: "asc" } } },
+    include: { branch: { include: { business: true } }, notes: { orderBy: { createdAt: "asc" } }, photos: { select: { id: true, width: true, height: true }, orderBy: { createdAt: "asc" } } },
   });
   if (!review) return null;
   return { review, phone: decryptField(review.customerPhoneEnc), email: decryptField(review.customerEmailEnc) };
@@ -231,6 +233,7 @@ function Detail({ a, d, backHref }: { a: Access; d: NonNullable<Awaited<ReturnTy
         <>
           {r.issues.length > 0 && <div className="chips">{r.issues.map((i) => <span key={i} className="lbadge">{i}</span>)}</div>}
           <p className="quote">{r.comment}</p>
+          <PhotoGallery photos={r.photos} />
           <div className="cust-card">
             {r.customerName ? <b>{r.customerName}</b> : <span>Name not given</span>}
             {d.phone ? <span className="num">+91 {d.phone.slice(0, 5)} {d.phone.slice(5)}</span> : <span>No phone</span>}

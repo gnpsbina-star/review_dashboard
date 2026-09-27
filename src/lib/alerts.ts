@@ -41,7 +41,7 @@ function describe(r: { rating: number; tableLabel: string | null; staffName: str
 
 /** Emails the branch team about a new private complaint. Customer contact details stay in the dashboard. */
 export async function sendComplaintAlert(reviewId: string) {
-  const review = await db.review.findUnique({ where: { id: reviewId }, include: { branch: { include: { business: true } } } });
+  const review = await db.review.findUnique({ where: { id: reviewId }, include: { branch: { include: { business: true } }, _count: { select: { photos: true } } } });
   if (!review || review.alertSentAt) return;
   const to = await branchAlertRecipients(review.organizationId, review.branchId);
   const excerpt = (review.comment ?? "").slice(0, 280);
@@ -54,6 +54,7 @@ export async function sendComplaintAlert(reviewId: string) {
       describe(review, review.branch.business.name, review.branch.name),
       review.issues.length ? `About: ${review.issues.join(", ")}` : "",
       `“${excerpt}${(review.comment ?? "").length > 280 ? "…" : ""}”`,
+      review._count.photos ? `The customer attached ${review._count.photos} ${review._count.photos === 1 ? "photo" : "photos"}. Open the dashboard to see them.` : "",
       review.customerPhoneEnc || review.customerEmailEnc ? "The customer left contact details and agreed to be contacted." : "The customer didn't leave contact details.",
     ].filter(Boolean),
     cta: { label: "Open in dashboard", url: `${env().APP_URL}/dashboard?review=${review.id}` },

@@ -3,6 +3,7 @@ import { Flash } from "@/components/dashboard/Flash";
 import { renewYear } from "./actions";
 import { requirePlatformOwner } from "@/lib/access";
 import { db } from "@/lib/db";
+import { activeBackend } from "@/lib/storage";
 import { shortDate, titleCase } from "@/lib/format";
 import { subscriptionInfo, type SubInfo } from "@/lib/subscription";
 
@@ -16,14 +17,15 @@ function datesText(s: SubInfo): string {
 
 async function loadUsage() {
   const dayStart = new Date(Date.now() - 86_400_000);
-  const [size, emails, ratings, branches, orgs] = await Promise.all([
+  const [size, emails, ratings, branches, orgs, photoBytes] = await Promise.all([
     db.$queryRaw<{ bytes: bigint }[]>`SELECT pg_database_size(current_database())::bigint AS bytes`,
     db.emailLog.count({ where: { createdAt: { gte: dayStart } } }),
     db.review.count({ where: { createdAt: { gte: dayStart } } }),
     db.branch.count({ where: { archivedAt: null } }),
     db.organization.findMany({ include: { subscription: true, _count: { select: { branches: { where: { archivedAt: null } } } } }, orderBy: { name: "asc" } }),
+    db.reviewPhoto.aggregate({ _sum: { bytes: true } }),
   ]);
-  return { mb: Number(size[0].bytes) / 1_048_576, emails, ratings, branches, orgs };
+  return { mb: Number(size[0].bytes) / 1_048_576, emails, ratings, branches, orgs, photoMb: (photoBytes._sum.bytes ?? 0) / 1_048_576 };
 }
 
 function Meter({ label, value, of, pct }: { label: string; value: string; of: string; pct?: number }) {
@@ -60,6 +62,7 @@ export default async function PlatformHome(props: PageProps<"/platform">) {
       <div className="meters">
         <Meter label="Database" value={`${u.mb.toFixed(1)} MB`} of="of 512 MB free" pct={(u.mb / 512) * 100} />
         <Meter label="Emails, 24 h" value={String(u.emails)} of="of 100 free" pct={u.emails} />
+        <Meter label="Customer photos" value={`${u.photoMb.toFixed(1)} MB`} of={activeBackend() === "r2" ? "of 10 GB free (R2)" : "in database"} pct={activeBackend() === "r2" ? (u.photoMb / 10240) * 100 : undefined} />
         <Meter label="Ratings, 24 h" value={String(u.ratings)} of="all clients" />
         <Meter label="Active branches" value={String(u.branches)} of={`${u.orgs.length} clients`} />
       </div>
