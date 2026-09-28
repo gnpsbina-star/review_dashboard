@@ -30,7 +30,7 @@ The new code lives on the branch `claude/tender-cori-utt1pn`. Vercel publishes t
 
 1. Sign up at **vercel.com** with your GitHub account.
 2. Choose **Add New → Project**, then import `review_dashboard`.
-3. Pick a project name, e.g. `synergy-reviews`. Your address becomes **`https://synergy-reviews.vercel.app`**. This is `APP_URL`.
+3. Pick a project name, e.g. `review-dashboard`. Your address becomes **`https://review-dashboard.vercel.app`**. This is `APP_URL`.
 4. **Don’t deploy yet.** First collect the keys from steps 3 to 7, then add them all at once in step 8.
 
 ## Step 3 — Secret keys
@@ -51,16 +51,21 @@ openssl rand -base64 48   # CRON_SECRET
 ## Step 4 — “Sign in with Google” (Google Cloud, free)
 
 1. Go to **console.cloud.google.com** and create a project named “Smart Review”.
-2. Open **APIs & Services → OAuth consent screen**:
-   - User type: External.
-   - App name: “Smart Review Platform”.
-   - Add your support email.
-   - Publish the app, so it isn't limited to test users.
-3. Open **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+2. Open **APIs & Services → OAuth consent screen** (also called **Google Auth Platform**) and click **Get started**:
+   - App name: "Smart Review Platform". Add your support email.
+   - Audience: **External** (Internal would only allow your own domain's accounts).
+3. Open **Branding** and fill in (replace the address with your `APP_URL`):
+   - Application home page: `https://review-dashboard.vercel.app`
+   - Privacy policy: `https://review-dashboard.vercel.app/privacy`
+   - Terms of service: `https://review-dashboard.vercel.app/terms`
+   - Authorised domains: `review-dashboard.vercel.app`
+   - Don't upload a logo; a logo makes Google require a manual review.
+   - Then open **Audience → Publish app**, so sign-in isn't limited to test users.
+4. Open **Clients → Create client** (or **Credentials → Create credentials → OAuth client ID**):
    - Type: Web application.
-   - Authorised JavaScript origin: `https://synergy-reviews.vercel.app` (your `APP_URL`).
-   - Authorised redirect URI: `https://synergy-reviews.vercel.app/api/auth/google/callback`
-4. 🔑 Copy the **Client ID** (`GOOGLE_CLIENT_ID`) and the **Client secret** (`GOOGLE_CLIENT_SECRET`).
+   - Authorised JavaScript origin: `https://review-dashboard.vercel.app` (your `APP_URL`).
+   - Authorised redirect URI: `https://review-dashboard.vercel.app/api/auth/google/callback`
+5. 🔑 Copy the **Client ID** (`GOOGLE_CLIENT_ID`) and the **Client secret** (`GOOGLE_CLIENT_SECRET`).
 
 ## Step 5 — Email alerts (your Google Workspace mailbox, free: about 2,000 emails a day)
 
@@ -81,7 +86,7 @@ The app password only works for this one mailbox. If it ever leaks, delete it at
 
 1. Sign up at **dash.cloudflare.com**.
 2. **Turnstile → Add widget**:
-   - Hostname: `synergy-reviews.vercel.app`.
+   - Hostname: `review-dashboard.vercel.app`.
    - Mode: Managed.
    - 🔑 Copy the **Site key** (`TURNSTILE_SITE_KEY`) and the **Secret key** (`TURNSTILE_SECRET_KEY`).
 3. **R2 → Create bucket** named `smart-review-photos`, with **no public access**.
@@ -108,10 +113,11 @@ In Vercel, open **Project → Settings → Environment Variables** and add each 
 |---|---|
 | `DATABASE_URL` | Neon pooled string |
 | `DIRECT_URL` | Neon direct string |
-| `APP_URL` | `https://synergy-reviews.vercel.app` |
+| `APP_URL` | `https://review-dashboard.vercel.app` |
 | `QR_BASE_URL` | `https://go.<subdomain>.workers.dev` |
 | `FIELD_ENCRYPTION_KEY`, `HASH_SECRET`, `CRON_SECRET` | from step 3 |
 | `PLATFORM_OWNER_EMAILS` | your own Google email |
+| `SUPPORT_EMAIL` | the address shown on the privacy policy for data requests |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | from step 4 |
 | `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | from step 5 |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | from step 6 |

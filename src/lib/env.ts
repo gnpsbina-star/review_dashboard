@@ -92,6 +92,12 @@ export function platformOwnerEmails(): string[] {
     .filter(Boolean);
 }
 
+/** Contact on the privacy policy and terms. Read on its own so those pages prerender without the app's secrets. */
+export function supportEmail(): string | undefined {
+  const parsed = z.string().trim().email().safeParse(process.env.SUPPORT_EMAIL);
+  return parsed.success ? parsed.data : undefined;
+}
+
 export function qrUrl(code: string): string {
   const e = env();
   return e.QR_BASE_URL ? `${e.QR_BASE_URL.replace(/\/$/, "")}/${code}` : `${e.APP_URL.replace(/\/$/, "")}/r/${code}`;

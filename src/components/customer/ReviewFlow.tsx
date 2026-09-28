@@ -462,7 +462,7 @@ export function ReviewFlow(p: FlowProps) {
             <button type="button" className="btn-quiet" onClick={restart}>{t.done}</button>
           </div>
         )}
-        <div className="cx-foot">{t.poweredBy} <b>Synergy Technologies</b></div>
+        <div className="cx-foot">{t.poweredBy} <b>Synergy Technologies</b> · <a href="/privacy" target="_blank" rel="noopener">{t.privacy}</a></div>
       </div>
     </main>
   );
