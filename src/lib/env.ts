@@ -29,6 +29,11 @@ const schema = z
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET: z.string().optional(),
 
+    // Email: Gmail / Google Workspace SMTP (app password) or Resend. SMTP wins when both are set.
+    SMTP_HOST: z.string().default("smtp.gmail.com"),
+    SMTP_PORT: z.coerce.number().int().positive().default(465),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default("Smart Review <alerts@example.com>"),
 
@@ -47,10 +52,12 @@ const schema = z
       "GOOGLE_CLIENT_SECRET",
       "TURNSTILE_SITE_KEY",
       "TURNSTILE_SECRET_KEY",
-      "RESEND_API_KEY",
     ];
     for (const key of required) {
       if (!v[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required in production` });
+    }
+    if (!v.RESEND_API_KEY && !(v.SMTP_USER && v.SMTP_PASSWORD)) {
+      ctx.addIssue({ code: "custom", path: ["SMTP_PASSWORD"], message: "Email needs SMTP_USER and SMTP_PASSWORD (or RESEND_API_KEY) in production" });
     }
     if (!v.APP_URL.startsWith("https://")) {
       ctx.addIssue({ code: "custom", path: ["APP_URL"], message: "APP_URL must use https in production" });

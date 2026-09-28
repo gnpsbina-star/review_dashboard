@@ -138,7 +138,7 @@ English by default, with a Hindi toggle.
 
 ## 6. Alerts & Escalation
 
-- **Phase 1:** email alerts via Resend to every admin assigned to the branch. Client Owners can opt in to all alerts.
+- **Phase 1:** email alerts (Gmail / Google Workspace SMTP, or Resend) to every admin assigned to the branch. Client Owners can opt in to all alerts.
 - **Escalation:** a complaint still **New after 1 day** triggers a re-alert to the Client Owner(s).
 - **Phase 2:** WhatsApp Business API alerts, once Meta verification and template approval are done.
 - The 1-click **WhatsApp reply** (`wa.me` link with a pre-filled apology), `tel:` and `mailto:` all work from day one.
@@ -216,7 +216,7 @@ No system can promise zero bugs. This is the design standard, and every item mus
 | Hosting | Vercel Hobby for development and pilot | Hobby is non-commercial. Move to Vercel Pro or Cloudflare at the first paying client; the code stays portable. |
 | Database | PostgreSQL on Neon (free 0.5 GB), Prisma ORM | Single shared database (§12) |
 | Auth | Auth.js with Google OAuth | |
-| Email | Resend (free tier) | Swappable with Brevo |
+| Email | Google Workspace SMTP with an app password (about 2,000 a day) | Resend supported as an alternative |
 | AI | Gemini free tier by default; Claude and OpenAI switchable | Provider adapters |
 | Captcha | Cloudflare Turnstile | Free |
 | File storage | Cloudflare R2 | Free 10 GB |

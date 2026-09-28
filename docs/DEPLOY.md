@@ -62,12 +62,20 @@ openssl rand -base64 48   # CRON_SECRET
    - Authorised redirect URI: `https://synergy-reviews.vercel.app/api/auth/google/callback`
 4. 🔑 Copy the **Client ID** (`GOOGLE_CLIENT_ID`) and the **Client secret** (`GOOGLE_CLIENT_SECRET`).
 
-## Step 5 — Email alerts (Resend, free: 100 emails a day)
+## Step 5 — Email alerts (your Google Workspace mailbox, free: about 2,000 emails a day)
 
-1. Sign up at **resend.com**.
-2. Under **Domains → Add domain**, add the domain you send from (see the decision in chat), then add the DNS records Resend shows at your domain provider.
-3. Under **API Keys → Create**, choose “Sending access”. 🔑 This is `RESEND_API_KEY`.
-4. Set `EMAIL_FROM`, e.g. `Smart Review <alerts@yourdomain>`.
+Alerts are sent from **donotreply@mygnps.com** through Gmail. No DNS changes are needed.
+
+1. **Allow 2-Step Verification** (once, as the Workspace admin): open **admin.google.com → Security → Authentication → 2-Step Verification**, tick **Allow users to turn on 2-Step Verification**, then **Save**.
+2. **Turn it on for the mailbox**: sign in to **myaccount.google.com** as `donotreply@mygnps.com`, then open **Security → 2-Step Verification** and follow the steps (a phone number is enough).
+3. **Create an app password**: still signed in as `donotreply@mygnps.com`, open **myaccount.google.com/apppasswords**, type the name `Smart Review`, then click **Create**.
+   - 🔑 The 16-letter password shown once is `SMTP_PASSWORD`. Spaces don't matter.
+   - If the page says the setting isn't available, repeat step 1 and wait 10 minutes.
+4. The other values:
+   - `SMTP_USER` = `donotreply@mygnps.com`
+   - `EMAIL_FROM` = `Smart Review Alerts <donotreply@mygnps.com>` (must be the same mailbox)
+
+The app password only works for this one mailbox. If it ever leaks, delete it at **myaccount.google.com/apppasswords** and create a new one. Never use the mailbox's normal password.
 
 ## Step 6 — Captcha, photo storage, QR address (Cloudflare, free)
 
@@ -105,7 +113,7 @@ In Vercel, open **Project → Settings → Environment Variables** and add each 
 | `FIELD_ENCRYPTION_KEY`, `HASH_SECRET`, `CRON_SECRET` | from step 3 |
 | `PLATFORM_OWNER_EMAILS` | your own Google email |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | from step 4 |
-| `RESEND_API_KEY`, `EMAIL_FROM` | from step 5 |
+| `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | from step 5 |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | from step 6 |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | from step 6 (optional) |
 | `AI_PROVIDER` | `GEMINI` |
