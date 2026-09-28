@@ -18,7 +18,7 @@ Documents: [going live checklist](docs/DEPLOY.md) · [final specification](docs/
 | App | Next.js 16 (App Router, TypeScript), React 19, Tailwind 4 plus the design system in `src/app/globals.css` |
 | Database | PostgreSQL (Neon free tier) with Prisma 7 |
 | Sign-in | Google OAuth (via `arctic`) with database sessions, invite-only |
-| Email | Resend |
+| Email | Gmail / Google Workspace SMTP (app password), or Resend |
 | AI | Gemini (default), Claude or ChatGPT, switchable; offline templates as fallback |
 | Captcha | Cloudflare Turnstile |
 | Customer photos | Cloudflare R2 (private; database fallback in development) |
@@ -84,7 +84,7 @@ You create these free accounts yourself. **Put keys only in the hosting settings
 2. **Google Cloud Console** (sign-in): create an OAuth client of type “Web application”.
    - Authorised redirect URI: `https://<your-app>/api/auth/google/callback`
    - Copy the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-3. **Resend** (email): verify a sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`.
+3. **Email**: either a Google Workspace or Gmail mailbox with an app password (`SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` set to the same mailbox), or Resend with a verified domain (`RESEND_API_KEY`, `EMAIL_FROM`). See step 5 of the checklist.
 4. **Cloudflare Turnstile** (captcha): add a site and set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
 5. **Google AI Studio** (Gemini): create an API key and set `GEMINI_API_KEY`.
    - **Cloudflare R2** (customer photos): create a private bucket (no public access) and an API token with Object Read & Write for that bucket. Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET`.
