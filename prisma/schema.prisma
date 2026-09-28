@@ -1,0 +1,371 @@
+// Smart Review Platform — data model. See docs/SPEC.md §12.
+// Every tenant-owned table carries organizationId so queries can always be
+// scoped to one client account (see src/lib/access.ts).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MemberRole {
+  CLIENT_OWNER
+  BRANCH_ADMIN
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum ReviewSource {
+  INTERCEPTED
+  GOOGLE_REDIRECT
+  FACEBOOK_REDIRECT // happy customer went straight to Facebook (skipped Google)
+}
+
+enum ReviewStatus {
+  NEW
+  CONTACTED
+  RESOLVED
+}
+
+enum SuggestionLang {
+  en
+  hi
+  hinglish
+}
+
+enum QrKind {
+  BRANCH
+  TABLE
+  STAFF
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique // always stored lower-case
+  name            String?
+  isPlatformOwner Boolean      @default(false)
+  disabledAt      DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime     @default(now())
+  sessions        Session[]
+  memberships     Membership[]
+}
+
+model Session {
+  // id is the SHA-256 hash of the session token; the raw token only lives in the cookie.
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Organization {
+  id           String         @id @default(cuid())
+  name         String
+  databaseKey  String         @default("shared") // "shared" or a dedicated database key (premium plan)
+  status       OrgStatus      @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  subscription Subscription?
+  memberships  Membership[]
+  businesses   Business[]
+  branches     Branch[]
+  staff        Staff[]
+  qrCodes      QrCode[]
+  reviews      Review[]
+  notes        ResolutionNote[]
+  suggestions  AiSuggestion[]
+  photos       ReviewPhoto[]
+}
+
+model Subscription {
+  id                  String       @id @default(cuid())
+  organizationId      String       @unique
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planName            String       @default("Starter")
+  maxBranches         Int          @default(2)
+  trialEndsAt         DateTime?
+  currentPeriodEnd    DateTime? // end of the paid yearly term
+  // Notification bookkeeping so each email goes out once per term.
+  remindersSent       String[]     @default([]) // e.g. "2027-03-12:30", "2027-03-12:7"
+  purgeWarningSentAt  DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model Membership {
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId   String
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role             MemberRole
+  receiveAllAlerts Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  branches         BranchAssignment[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model BranchAssignment {
+  id           String     @id @default(cuid())
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, branchId])
+  @@index([branchId])
+}
+
+model Business {
+  id               String        @id @default(cuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  category         String // e.g. "Fine dining restaurant", "Dental clinic"
+  address          String?
+  brandColor       String        @default("#0E6B63")
+  brandTone        String        @default("Warm and friendly")
+  deviceLimitHours Int           @default(2)
+  logoVersion      Int           @default(0)
+  archivedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  logo             BusinessLogo?
+  branches         Branch[]
+
+  @@index([organizationId])
+}
+
+model BusinessLogo {
+  businessId String   @id
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  data       Bytes // re-encoded 256x256 PNG
+  updatedAt  DateTime @updatedAt
+}
+
+model Branch {
+  id                     String             @id @default(cuid())
+  organizationId         String
+  organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessId             String
+  business               Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name                   String
+  slug                   String             @unique // immutable after creation
+  cityArea               String
+  googlePlaceId          String?
+  googleReviewUrl        String
+  facebookReviewUrl      String? // optional; shows "Also share on Facebook"
+  languages              SuggestionLang[]   @default([en])
+  highlights             String[]           @default([])
+  aiSettingsUpdatedAt    DateTime           @default(now())
+  suggestionsRefreshedAt DateTime?
+  archivedAt             DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  staff                  Staff[]
+  qrCodes                QrCode[]
+  reviews                Review[]
+  suggestions            AiSuggestion[]
+  assignments            BranchAssignment[]
+
+  @@index([organizationId])
+  @@index([businessId])
+}
+
+model Staff {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId            String
+  branch              Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name                String
+  active              Boolean      @default(true)
+  // ID card details
+  designation         String?
+  employeeCode        String? // e.g. "KC-0007", unique within the account
+  bloodGroup          String?
+  emergencyContactEnc String? // AES-256-GCM, like customer phones
+  validUntil          DateTime?
+  photoStorage        String? // "r2" or "db"
+  photoKey            String?      @unique
+  photoVersion        Int          @default(0)
+  photoConsentAt      DateTime? // when the owner confirmed the employee agreed
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @default(now()) @updatedAt
+  qrCodes             QrCode[]
+  reviews             Review[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([branchId])
+}
+
+model QrCode {
+  id             String       @id @default(cuid())
+  code           String       @unique // permanent short code printed in the QR
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  kind           QrKind
+  key            String // "branch", "table:5", "staff:<staffId>"
+  tableLabel     String?
+  staffId        String?
+  staff          Staff?       @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  reviews        Review[]
+
+  @@unique([branchId, key])
+  @@index([organizationId])
+}
+
+model Review {
+  id               String           @id @default(cuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId         String
+  branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  qrCodeId         String?
+  qrCode           QrCode?          @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  rating           Int
+  source           ReviewSource
+  status           ReviewStatus? // only for INTERCEPTED
+  language         String?
+  comment          String?
+  issues           String[]         @default([])
+  customerName     String?
+  customerPhoneEnc String? // AES-256-GCM, see src/lib/crypto.ts
+  customerEmailEnc String?
+  contactConsent   Boolean          @default(false)
+  tableLabel       String?
+  staffId          String?
+  staff            Staff?           @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  staffName        String? // snapshot at submission time
+  editedSuggestion Boolean?
+  facebookSharedAt DateTime? // a Google-redirect customer also went on to Facebook
+  ipHash           String?
+  deviceHash       String?
+  contactedAt      DateTime?
+  resolvedAt       DateTime?
+  alertSentAt      DateTime?
+  escalatedAt      DateTime?
+  archivedAt       DateTime?
+  piiPurgedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  notes            ResolutionNote[]
+  photos           ReviewPhoto[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@index([source, status, createdAt])
+  @@index([deviceHash, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model ResolutionNote {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewId       String
+  review         Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  authorUserId   String?
+  authorName     String
+  text           String
+  createdAt      DateTime     @default(now())
+
+  @@index([reviewId])
+}
+
+model AiSuggestion {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  language       SuggestionLang
+  ratingTier     Int // 4 or 5
+  text           String // may contain the {{staff}} placeholder
+  mentionsStaff  Boolean        @default(false)
+  batchId        String
+  createdAt      DateTime       @default(now())
+
+  @@index([branchId, ratingTier, language])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  actorUserId    String?
+  actorEmail     String?
+  action         String
+  entity         String
+  entityId       String?
+  meta           Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
+model EmailLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  kind           String
+  ok             Boolean
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Customer photo attached to a private complaint. Bytes live in Cloudflare R2
+/// (or in ReviewPhotoBlob when R2 isn't configured, e.g. local development).
+model ReviewPhoto {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewId       String
+  review         Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  storage        String // "r2" or "db"
+  storageKey     String       @unique
+  bytes          Int
+  width          Int
+  height         Int
+  createdAt      DateTime     @default(now())
+
+  @@index([reviewId])
+  @@index([organizationId])
+}
+
+/// Private file bytes when R2 isn't configured (customer photos, staff photos).
+model StoredBlob {
+  storageKey String   @id
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  @@map("ReviewPhotoBlob")
+}

@@ -1,0 +1,9 @@
+# Deploy: cd worker && npx wrangler deploy
+# The public address becomes https://go.<your-account-subdomain>.workers.dev
+name = "go"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Where the app currently lives. Change this when you move to your own domain.
+APP_URL = "https://your-app.vercel.app"
