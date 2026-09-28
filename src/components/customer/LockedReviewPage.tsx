@@ -14,7 +14,7 @@ export function LockedReviewPage(p: { businessId: string; businessName: string; 
           <a className="btn-brand" style={{ width: "100%" }} href={p.googleUrl} target="_blank" rel="noopener noreferrer">{t.lockedBtn}</a>
           {p.facebookUrl && <a className="btn-quiet" style={{ width: "100%" }} href={p.facebookUrl} target="_blank" rel="noopener noreferrer">{t.lockedFb}</a>}
         </div>
-        <div className="cx-foot">{t.poweredBy} <b>Synergy Technologies</b></div>
+        <div className="cx-foot">{t.poweredBy} <b>Synergy Technologies</b> · <a href="/privacy" target="_blank" rel="noopener">{t.privacy}</a></div>
       </div>
     </main>
   );

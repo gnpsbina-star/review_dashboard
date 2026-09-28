@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildPrompt } from "@/lib/ai/prompt";
 import { templateSuggestions } from "@/lib/ai/templates";
 import { cleanSuggestions, parseJsonArray } from "@/lib/ai/validate";
@@ -107,5 +107,18 @@ describe("AI suggestions", () => {
       expect(new Set(t).size).toBe(t.length);
       expect(t.length).toBeGreaterThanOrEqual(20);
     }
+  });
+});
+
+describe("privacy contact", () => {
+  it("shows SUPPORT_EMAIL only when it is a valid address", async () => {
+    const { supportEmail } = await import("@/lib/env");
+    vi.stubEnv("SUPPORT_EMAIL", " privacy@mygnps.com ");
+    expect(supportEmail()).toBe("privacy@mygnps.com");
+    vi.stubEnv("SUPPORT_EMAIL", "not an email");
+    expect(supportEmail()).toBeUndefined();
+    vi.stubEnv("SUPPORT_EMAIL", "");
+    expect(supportEmail()).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });

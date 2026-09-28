@@ -65,6 +65,7 @@ export const T = {
     lockedS: "We’d love to hear about your experience.",
     lockedBtn: "Review us on Google",
     poweredBy: "Powered by",
+    privacy: "Privacy",
   },
   hi: {
     q: "आज आपका अनुभव कैसा रहा?",
@@ -127,6 +128,7 @@ export const T = {
     lockedS: "हमें आपका अनुभव जानकर खुशी होगी।",
     lockedBtn: "Google पर रिव्यू दें",
     poweredBy: "Powered by",
+    privacy: "गोपनीयता",
   },
 } as const;
 

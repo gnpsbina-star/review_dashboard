@@ -48,6 +48,10 @@ export default async function LoginPage(props: PageProps<"/login">) {
           </form>
         )}
         <p className="help">Only invited emails can sign in. We never see your Google password.</p>
+        <p className="help legal-links">
+          <a href="/privacy">Privacy policy</a>
+          <a href="/terms">Terms of service</a>
+        </p>
       </div>
     </main>
   );
