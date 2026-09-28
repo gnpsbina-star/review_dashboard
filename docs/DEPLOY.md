@@ -127,6 +127,8 @@ In Vercel, open **Project → Settings → Environment Variables** and add each 
 
 Leave `DEV_LOGIN_ENABLED` **unset**.
 
+Keep every variable on **Production** only. Preview deployments (one per pull request) build without migrations, and must never get the production database or keys.
+
 Then open **Deployments → Redeploy**. The deploy creates the database tables automatically (`vercel-build` runs the migrations).
 
 ## Step 9 — Scheduled jobs (GitHub, free)

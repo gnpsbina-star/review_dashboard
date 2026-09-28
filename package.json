@@ -13,7 +13,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx --conditions=react-server prisma/seed.ts",
     "postinstall": "prisma generate && node scripts/copy-mediapipe.mjs",
-    "vercel-build": "prisma migrate deploy && next build"
+    "vercel-build": "if [ \"$VERCEL_ENV\" = production ]; then prisma migrate deploy; fi && next build"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
