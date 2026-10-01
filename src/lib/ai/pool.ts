@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { businessTypeOf } from "@/lib/business-type";
 import { db } from "@/lib/db";
+import type { Branch, Business } from "@/generated/prisma/client";
 import { getAiProviderName } from "@/lib/settings";
 import { buildPrompt } from "./prompt";
 import { getProvider } from "./providers";
@@ -19,17 +21,27 @@ export interface RefreshResult {
   templateCount: number;
 }
 
-/** Regenerates a branch's suggestion pool. The old pool is replaced, never appended to. */
-export async function refreshBranchSuggestions(branchId: string): Promise<RefreshResult> {
-  const branch = await db.branch.findUniqueOrThrow({ where: { id: branchId }, include: { business: true } });
-  const profile: BranchProfile = {
+export function branchProfile(branch: Branch & { business: Business }): BranchProfile {
+  return {
     businessName: branch.business.name,
     branchName: branch.name,
     cityArea: branch.cityArea,
+    type: businessTypeOf(branch.business),
     category: branch.business.category,
     highlights: branch.highlights,
     tone: branch.business.brandTone,
   };
+}
+
+/** True while the saved pool predates the branch's current settings (or was never written). */
+export function poolIsStale(branch: Pick<Branch, "aiSettingsUpdatedAt" | "suggestionsRefreshedAt">): boolean {
+  return !branch.suggestionsRefreshedAt || branch.aiSettingsUpdatedAt > branch.suggestionsRefreshedAt;
+}
+
+/** Regenerates a branch's suggestion pool. The old pool is replaced, never appended to. */
+export async function refreshBranchSuggestions(branchId: string): Promise<RefreshResult> {
+  const branch = await db.branch.findUniqueOrThrow({ where: { id: branchId }, include: { business: true } });
+  const profile = branchProfile(branch);
   const providerName = await getAiProviderName();
   const provider = providerName === "MOCK" ? null : getProvider(providerName);
   const langs = (branch.languages.length ? branch.languages : ["en"]) as Lang[];
@@ -86,13 +98,23 @@ function shuffle<T>(a: T[]): T[] {
 /**
  * A random sample from the pool for the customer page. Staff mentions are
  * filled in from the QR code's staff member, or skipped when there is none.
+ * While the pool is out of date (new branch, or settings just changed), fresh
+ * template wording for the business type is served until the rewrite lands.
  */
-export async function sampleSuggestions(branchId: string, tier: 4 | 5, staffName: string | null, take = 24): Promise<ShownSuggestion[]> {
-  const pool = await db.aiSuggestion.findMany({
-    where: { branchId, ratingTier: tier, ...(staffName ? {} : { mentionsStaff: false }) },
-    select: { id: true, language: true, text: true },
-  });
-  return shuffle(pool)
+export async function sampleSuggestions(branch: Branch & { business: Business }, tier: 4 | 5, staffName: string | null, take = 24): Promise<ShownSuggestion[]> {
+  const pool = poolIsStale(branch)
+    ? templatePool(branch, tier)
+    : await db.aiSuggestion.findMany({
+        where: { branchId: branch.id, ratingTier: tier, ...(staffName ? {} : { mentionsStaff: false }) },
+        select: { id: true, language: true, text: true },
+      });
+  return shuffle(pool.filter((s) => staffName || !s.text.includes("{{staff}}")))
     .slice(0, take)
     .map((s) => ({ id: s.id, language: s.language as Lang, text: staffName ? s.text.replaceAll("{{staff}}", staffName) : s.text }));
+}
+
+function templatePool(branch: Branch & { business: Business }, tier: 4 | 5) {
+  const profile = branchProfile(branch);
+  const langs = (branch.languages.length ? branch.languages : ["en"]) as Lang[];
+  return langs.flatMap((language) => templateSuggestions(profile, language, tier, PER_TIER).map((text, i) => ({ id: `tpl-${language}-${tier}-${i}`, language, text })));
 }

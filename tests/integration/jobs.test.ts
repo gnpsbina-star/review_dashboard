@@ -53,10 +53,27 @@ describe("scheduled jobs", () => {
     const counts = await db.aiSuggestion.groupBy({ by: ["language", "ratingTier"], where: { branchId: t.b1.id }, _count: true });
     expect(counts).toHaveLength(4);
     for (const c of counts) expect(c._count).toBe(50);
-    const noStaff = await sampleSuggestions(t.b1.id, 5, null);
+    const branch = await db.branch.findUniqueOrThrow({ where: { id: t.b1.id }, include: { business: true } });
+    const noStaff = await sampleSuggestions(branch, 5, null);
+    expect(noStaff.every((s) => !s.id.startsWith("tpl-"))).toBe(true);
     expect(noStaff.every((s) => !s.text.includes("{{staff}}"))).toBe(true);
-    const withStaff = await sampleSuggestions(t.b1.id, 5, "Ravi", 100);
+    const withStaff = await sampleSuggestions(branch, 5, "Ravi", 100);
     expect(withStaff.some((s) => s.text.includes("Ravi"))).toBe(true);
     expect(withStaff.every((s) => !s.text.includes("{{staff}}"))).toBe(true);
+  });
+
+  it("serves fresh wording for the business type while the pool is being rewritten", async () => {
+    const t = await makeTenant("Edu");
+    await db.business.update({ where: { id: t.business.id }, data: { type: "COACHING", name: "Bright Minds" } });
+    await refreshBranchSuggestions(t.b1.id);
+    // Settings change after the pool was written: the old (cafe) pool is stale.
+    await db.branch.update({ where: { id: t.b1.id }, data: { aiSettingsUpdatedAt: new Date(Date.now() + 1000), highlights: ["Experienced faculty"] } });
+    const branch = await db.branch.findUniqueOrThrow({ where: { id: t.b1.id }, include: { business: true } });
+    const shown = await sampleSuggestions(branch, 5, null, 100);
+    expect(shown.length).toBeGreaterThan(10);
+    expect(shown.every((s) => s.id.startsWith("tpl-"))).toBe(true);
+    expect(shown.some((s) => s.text.includes("experienced faculty"))).toBe(true);
+    expect(shown.some((s) => /parent|our child|our son|my daughter/i.test(s.text))).toBe(true);
+    expect(shown.some((s) => /my studies|study|learnt|my doubts/i.test(s.text))).toBe(true);
   });
 });

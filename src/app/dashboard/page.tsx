@@ -34,7 +34,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
   const before = one(sp.before);
   const selectedId = one(sp.review);
 
-  const { rows, businesses, newCount, escalatedCount, avg, google30 } = await loadFeed(a, { type, status, biz, archivedView, before });
+  const { rows, businesses, newCount, escalatedCount, avg, sentThisMonth } = await loadFeed(a, { type, status, biz, archivedView, before });
   const hasMore = rows.length > PAGE;
   const list = rows.slice(0, PAGE);
   const selected = selectedId ? await loadDetail(a, selectedId, archivedView) : null;
@@ -67,7 +67,7 @@ export default async function ReviewsPage(props: PageProps<"/dashboard">) {
           <div className="stat"><span className="stat-l">New complaints</span><span className={`stat-v ${newCount ? "crit" : ""}`}>{newCount}</span><span className="stat-d">Waiting for a reply</span></div>
           <div className="stat"><span className="stat-l">Waiting over 1 day</span><span className={`stat-v ${escalatedCount ? "crit" : ""}`}>{escalatedCount}</span><span className="stat-d">Owners are alerted</span></div>
           <div className="stat"><span className="stat-l">Average rating</span><span className="stat-v">{avg._avg.rating ? avg._avg.rating.toFixed(1) : "–"}</span><span className="stat-d">Last 30 days</span></div>
-          <div className="stat"><span className="stat-l">Sent to Google / Facebook</span><span className="stat-v">{google30}</span><span className="stat-d">Last 30 days</span></div>
+          <div className="stat"><span className="stat-l">Sent to Google / Facebook</span><span className="stat-v">{sentThisMonth}</span><span className="stat-d">This month · posting not confirmed</span></div>
         </div>
       )}
 
@@ -156,8 +156,9 @@ async function loadFeed(a: Access, f: { type?: string; status?: string; biz?: st
     ...(before && !Number.isNaN(Date.parse(before)) ? { createdAt: { lt: new Date(before) } } : {}),
   };
   const since30 = new Date(Date.now() - 30 * DAY);
+  const monthStart = startOfMonthIst(new Date());
 
-  const [rows, businesses, newCount, escalatedCount, avg, google30] = await Promise.all([
+  const [rows, businesses, newCount, escalatedCount, avg, sentThisMonth] = await Promise.all([
     db.review.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -172,17 +173,25 @@ async function loadFeed(a: Access, f: { type?: string; status?: string; biz?: st
     db.review.count({ where: { ...scope, source: "INTERCEPTED", status: "NEW" } }),
     db.review.count({ where: { ...scope, source: "INTERCEPTED", status: "NEW", createdAt: { lt: new Date(Date.now() - DAY) } } }),
     db.review.aggregate({ where: { ...scope, createdAt: { gte: since30 } }, _avg: { rating: true } }),
-    db.review.count({ where: { ...scope, source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] }, createdAt: { gte: since30 } } }),
+    db.review.count({ where: { ...scope, source: { in: ["GOOGLE_REDIRECT", "FACEBOOK_REDIRECT"] }, createdAt: { gte: monthStart } } }),
   ]);
-  return { rows, businesses, newCount, escalatedCount, avg, google30 };
+  return { rows, businesses, newCount, escalatedCount, avg, sentThisMonth };
+}
+
+const IST = 5.5 * 3_600_000;
+/** Midnight on the 1st of the current month, India time. */
+function startOfMonthIst(now: Date): Date {
+  const ist = new Date(now.getTime() + IST);
+  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1) - IST);
 }
 
 function PublicBadge({ source, facebook }: { source: string; facebook: boolean }) {
-  if (source === "FACEBOOK_REDIRECT") return <span className="badge facebook">Sent to Facebook</span>;
+  if (source === "FACEBOOK_REDIRECT") return <><span className="badge facebook">Sent to Facebook</span><span className="pill unconfirmed" title="We can’t see whether the customer actually posted.">Not confirmed</span></>;
   return (
     <>
       <span className="badge google">Sent to Google</span>
       {facebook && <span className="badge facebook">+ Facebook</span>}
+      <span className="pill unconfirmed" title="We can’t see whether the customer actually posted.">Not confirmed</span>
     </>
   );
 }

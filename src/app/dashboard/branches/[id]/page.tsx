@@ -5,7 +5,9 @@ import { BranchFields } from "@/components/dashboard/BranchFields";
 import { ConfirmButton } from "@/components/dashboard/ConfirmButton";
 import { Flash } from "@/components/dashboard/Flash";
 import { addStaff, archiveBranch, regenerateSuggestions, setStaffActive, updateBranch } from "../../businesses/actions";
+import { removeStaff, restoreStaff } from "../../staff/actions";
 import { requireAccess } from "@/lib/access";
+import { businessTypeOf } from "@/lib/business-type";
 import { LANG_LABELS } from "@/lib/customer-i18n";
 import { db } from "@/lib/db";
 import { qrUrl } from "@/lib/env";
@@ -27,6 +29,8 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
     db.aiSuggestion.findMany({ where: { branchId: br.id, ratingTier: 5 }, take: 4, orderBy: { id: "asc" } }),
   ]);
   const total = counts.reduce((n, c) => n + c._count, 0);
+  const staff = br.staff.filter((s) => !s.removedAt);
+  const removed = br.staff.filter((s) => s.removedAt);
   const branchQr = br.qrCodes[0];
 
   return (
@@ -41,7 +45,7 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
         <h3>Branch details and AI settings</h3>
         <form action={updateBranch} style={{ display: "grid", gap: 14 }}>
           <input type="hidden" name="branchId" value={br.id} />
-          <BranchFields br={br} />
+          <BranchFields br={br} type={businessTypeOf(br.business)} />
           <button className="btn" type="submit" style={{ justifySelf: "start" }}>Save changes</button>
         </form>
       </section>
@@ -65,23 +69,29 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
       <section className="panel">
         <h3>Staff</h3>
         <p className="cap">Each staff member gets their own QR code, so ratings show who served the customer.</p>
-        {br.staff.length > 0 && (
+        {staff.length > 0 && (
           <div className="tscroll">
             <table className="t">
               <thead><tr><th>Name</th><th>Employee ID</th><th>ID card photo</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {br.staff.map((s) => (
+                {staff.map((s) => (
                   <tr key={s.id}>
                     <td><Link href={`/dashboard/staff/${s.id}`}><b>{s.name}</b></Link>{s.designation ? <span className="help"> · {s.designation}</span> : null}</td>
                     <td>{s.employeeCode ?? "–"}</td>
                     <td>{s.photoKey ? "Added" : <Link href={`/dashboard/staff/${s.id}`}>Add photo</Link>}</td>
                     <td>{s.active ? "Active" : "Inactive"}</td>
                     <td className="r">
-                      <form action={setStaffActive}>
-                        <input type="hidden" name="staffId" value={s.id} />
-                        <input type="hidden" name="active" value={s.active ? "false" : "true"} />
-                        <button className="linkbtn" type="submit">{s.active ? "Deactivate" : "Reactivate"}</button>
-                      </form>
+                      <div className="toolbar" style={{ justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                        <form action={setStaffActive}>
+                          <input type="hidden" name="staffId" value={s.id} />
+                          <input type="hidden" name="active" value={s.active ? "false" : "true"} />
+                          <button className="linkbtn" type="submit">{s.active ? "Deactivate" : "Reactivate"}</button>
+                        </form>
+                        <form action={removeStaff}>
+                          <input type="hidden" name="staffId" value={s.id} />
+                          <ConfirmButton className="linkbtn danger" message={`Remove ${s.name}? They disappear from staff lists, ID cards and the QR studio. Their past ratings stay, and their printed QR code keeps working as a branch code. You can restore them later.`}>Remove</ConfirmButton>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -95,6 +105,22 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
           <input id="staff-name" name="name" className="input" required maxLength={40} placeholder="Staff name" style={{ maxWidth: 260 }} />
           <button className="btn-ghost" type="submit">Add staff</button>
         </form>
+        {removed.length > 0 && (
+          <details>
+            <summary className="help">Removed staff ({removed.length})</summary>
+            <ul className="removed-list">
+              {removed.map((s) => (
+                <li key={s.id}>
+                  <span><b>{s.name}</b>{s.designation ? <span className="help"> · {s.designation}</span> : null} <span className="help">· removed {relativeTime(s.removedAt!)}</span></span>
+                  <form action={restoreStaff}>
+                    <input type="hidden" name="staffId" value={s.id} />
+                    <button className="linkbtn" type="submit">Restore</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       <section className="panel">

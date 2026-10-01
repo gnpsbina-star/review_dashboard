@@ -7,6 +7,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type SuggestionLang } from "../src/generated/prisma/client";
 import { encryptField, keyedHash } from "../src/lib/crypto";
 import { templateSuggestions } from "../src/lib/ai/templates";
+import { guessType, TYPE_LABELS } from "../src/lib/business-type";
 import { newShortCode } from "../src/lib/shortcode";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -47,10 +48,13 @@ async function main() {
   const mgrMembership = await db.membership.create({ data: { userId: manager.id, organizationId: org.id, role: "BRANCH_ADMIN" } });
 
   const kc = await db.business.create({
-    data: { organizationId: org.id, name: "Kesar & Clove", category: "Family restaurant", address: "100 Feet Road, Indiranagar, Bengaluru", brandColor: "#A84F06", brandTone: "Warm and friendly" },
+    data: { organizationId: org.id, name: "Kesar & Clove", type: "RESTAURANT", category: "Family restaurant", address: "100 Feet Road, Indiranagar, Bengaluru", brandColor: "#A84F06", brandTone: "Warm and friendly" },
   });
   const cb = await db.business.create({
-    data: { organizationId: org.id, name: "Clove Bakehouse", category: "Bakery and café", address: "27th Main, HSR Layout, Bengaluru", brandColor: "#1D5FA8", brandTone: "Casual and cheerful" },
+    data: { organizationId: org.id, name: "Clove Bakehouse", type: "RESTAURANT", category: "Bakery and café", address: "27th Main, HSR Layout, Bengaluru", brandColor: "#1D5FA8", brandTone: "Casual and cheerful" },
+  });
+  const bm = await db.business.create({
+    data: { organizationId: org.id, name: "Bright Minds Coaching", type: "COACHING", category: "NEET and JEE coaching", address: "9th Block, Jayanagar, Bengaluru", brandColor: "#5B2A86", brandTone: "Professional and caring", qrHeadline: null },
   });
   const langs: SuggestionLang[] = ["en", "hi", "hinglish"];
   const mk = (businessId: string, name: string, slug: string, cityArea: string, highlights: string[]) =>
@@ -60,6 +64,7 @@ async function main() {
   const ind = await mk(kc.id, "Indiranagar", "kesar-clove-indiranagar", "Indiranagar, Bengaluru", ["filter coffee", "paneer tikka", "quick service"]);
   const kor = await mk(kc.id, "Koramangala", "kesar-clove-koramangala", "Koramangala, Bengaluru", ["biryani", "filter coffee", "family seating"]);
   const hsr = await mk(cb.id, "HSR Layout", "clove-bakehouse-hsr", "HSR Layout, Bengaluru", ["croissants", "cold coffee", "cosy seating"]);
+  const jay = await mk(bm.id, "Jayanagar", "bright-minds-jayanagar", "Jayanagar, Bengaluru", ["Experienced faculty", "Weekly tests", "Doubt-clearing sessions"]);
   await db.branchAssignment.create({ data: { membershipId: mgrMembership.id, branchId: ind.id } });
 
   const staff = async (branchId: string, names: string[]) =>
@@ -67,26 +72,29 @@ async function main() {
   const [ravi, sana] = await staff(ind.id, ["Ravi", "Sana"]);
   const [meena, arjun] = await staff(kor.id, ["Meena", "Arjun"]);
   const [farhan] = await staff(hsr.id, ["Farhan"]);
+  const [sharma, iyer] = await staff(jay.id, ["Mrs. Sharma", "Mr. Iyer"]);
   const roles: [typeof ravi, string, string, string][] = [
     [ravi, "KC-0001", "Senior Waiter", "B+"],
     [sana, "KC-0002", "Waiter", "O+"],
     [meena, "KC-0003", "Floor Manager", "A+"],
     [arjun, "KC-0004", "Waiter", "AB+"],
     [farhan, "CB-0001", "Barista", "O-"],
+    [sharma, "BMC-0001", "Physics", "A+"],
+    [iyer, "BMC-0002", "Chemistry", "B+"],
   ];
   for (const [s, code, designation, bloodGroup] of roles) {
     await db.staff.update({ where: { id: s.id }, data: { employeeCode: code, designation, bloodGroup, validUntil: new Date(now + 365 * DAY) } });
   }
 
   const codes: Record<string, string> = {};
-  for (const b of [ind, kor, hsr]) codes[b.id] = (await qr(org.id, b.id, "BRANCH", "branch")).id;
+  for (const b of [ind, kor, hsr, jay]) codes[b.id] = (await qr(org.id, b.id, "BRANCH", "branch")).id;
   for (let t = 1; t <= 12; t++) await qr(org.id, ind.id, "TABLE", `table:${t}`, { tableLabel: String(t) });
-  for (const s of [ravi, sana, meena, arjun, farhan]) await qr(org.id, s.branchId, "STAFF", `staff:${s.id}`, { staffId: s.id });
+  for (const s of [ravi, sana, meena, arjun, farhan, sharma, iyer]) await qr(org.id, s.branchId, "STAFF", `staff:${s.id}`, { staffId: s.id });
 
   // Suggestion pools (templates; the AI provider replaces them on the weekly refresh).
-  for (const b of [ind, kor, hsr]) {
-    const business = b.businessId === kc.id ? kc : cb;
-    const profile = { businessName: business.name, branchName: b.name, cityArea: b.cityArea, category: business.category, highlights: b.highlights, tone: business.brandTone };
+  for (const b of [ind, kor, hsr, jay]) {
+    const business = [kc, cb, bm].find((x) => x.id === b.businessId)!;
+    const profile = { businessName: business.name, branchName: b.name, cityArea: b.cityArea, type: business.type!, category: business.category, highlights: b.highlights, tone: business.brandTone };
     for (const language of langs) {
       for (const tier of [4, 5] as const) {
         const texts = templateSuggestions(profile, language, tier, 50);
@@ -164,7 +172,7 @@ async function main() {
     const other = await db.organization.create({
       data: { name: o.name, subscription: { create: { planName: o.plan, maxBranches: o.max, currentPeriodEnd: o.periodEnd ?? null, trialEndsAt: o.trialEnd ?? null } } },
     });
-    const biz = await db.business.create({ data: { organizationId: other.id, name: o.name, category: "Local business", brandColor: "#7A2E1F" } });
+    const biz = await db.business.create({ data: { organizationId: other.id, name: o.name, type: guessType(o.name), category: TYPE_LABELS[guessType(o.name)], brandColor: "#7A2E1F" } });
     const br = await db.branch.create({
       data: { organizationId: other.id, businessId: biz.id, name: "Main", slug: `${o.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-main`, cityArea: "Bengaluru", googleReviewUrl: "https://search.google.com/local/writereview?placeid=DEMO_PLACE_ID" },
     });

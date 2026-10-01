@@ -8,6 +8,7 @@ import { Flash } from "@/components/dashboard/Flash";
 import { BusinessLogo } from "@/components/ui";
 import { archiveBusiness, createBranch, removeLogo, updateBusiness, uploadLogo } from "../actions";
 import { requireAccess } from "@/lib/access";
+import { businessTypeOf } from "@/lib/business-type";
 import { readableBrandColor } from "@/lib/contrast";
 import { db } from "@/lib/db";
 
@@ -69,7 +70,7 @@ export default async function BusinessPage(props: PageProps<"/dashboard/business
             <summary style={{ cursor: "pointer", fontWeight: 700 }}>+ Add a branch</summary>
             <form action={createBranch} style={{ display: "grid", gap: 14, marginTop: 12 }}>
               <input type="hidden" name="businessId" value={b.id} />
-              <BranchFields />
+              <BranchFields type={businessTypeOf(b)} />
               <button className="btn" type="submit" style={{ justifySelf: "start" }}>Create branch</button>
             </form>
           </details>

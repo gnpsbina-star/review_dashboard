@@ -1,3 +1,5 @@
+import type { Family } from "./business-type";
+
 /** Customer page wording in English and Hindi. */
 export type UiLang = "en" | "hi";
 
@@ -6,6 +8,7 @@ export const LANG_LABELS: Record<"en" | "hi" | "hinglish", string> = { en: "Engl
 export const T = {
   en: {
     q: "How was your visit today?",
+    qEdu: "How was your experience with us?",
     qs: "Tap a star to rate",
     labels: ["Terrible", "Bad", "Okay", "Good", "Excellent"],
     table: "Table",
@@ -26,6 +29,11 @@ export const T = {
     st3: "Tap Post. That’s it!",
     stPhoto: "Want to add photos? Tap the camera icon on Google before posting.",
     openG: "Open Google again",
+    sentOpened: "Google is open in a new tab. Press and hold the review box, tap Paste, then tap Post.",
+    sentBlocked: "Tap “Open Google” below, then press and hold the review box and tap Paste.",
+    sentOther: "Want a different review? Pick one below and tap Copy.",
+    sentNoText: "Google is open in a new tab. Tell others what you liked!",
+    openGoogle: "Open Google",
     alsoFb: "Also share on Facebook",
     alsoFbHint: "Same review, already copied. Just paste it on Facebook.",
     fbInstead: "Post on Facebook instead",
@@ -36,7 +44,6 @@ export const T = {
     negS: "Tell the manager what went wrong. They read every message and will fix it.",
     what: "What went wrong?",
     tapAll: "Tap all that apply",
-    issues: ["Food", "Service", "Waiting time", "Cleanliness", "Billing"],
     detail: "Tell us more",
     name: "Your name",
     phone: "WhatsApp / phone",
@@ -69,6 +76,7 @@ export const T = {
   },
   hi: {
     q: "आज आपका अनुभव कैसा रहा?",
+    qEdu: "हमारे साथ आपका अनुभव कैसा रहा?",
     qs: "रेटिंग देने के लिए स्टार पर टैप करें",
     labels: ["बहुत खराब", "खराब", "ठीक-ठाक", "अच्छा", "बहुत बढ़िया"],
     table: "टेबल",
@@ -89,6 +97,11 @@ export const T = {
     st3: "Post पर टैप करें। बस!",
     stPhoto: "फ़ोटो जोड़नी है? पोस्ट करने से पहले Google पर कैमरा आइकन पर टैप करें।",
     openG: "Google फिर से खोलें",
+    sentOpened: "Google नए टैब में खुल गया है। रिव्यू बॉक्स को दबाकर रखें, Paste पर टैप करें, फिर Post करें।",
+    sentBlocked: "नीचे “Google खोलें” पर टैप करें, फिर रिव्यू बॉक्स को दबाकर रखें और Paste करें।",
+    sentOther: "कोई दूसरा रिव्यू चाहिए? नीचे से चुनें और कॉपी करें।",
+    sentNoText: "Google नए टैब में खुल गया है। बताएं कि आपको क्या पसंद आया!",
+    openGoogle: "Google खोलें",
     alsoFb: "Facebook पर भी शेयर करें",
     alsoFbHint: "वही रिव्यू पहले से कॉपी है। बस Facebook पर पेस्ट करें।",
     fbInstead: "इसके बजाय Facebook पर पोस्ट करें",
@@ -99,7 +112,6 @@ export const T = {
     negS: "मैनेजर को बताएं कि क्या गलत हुआ। वे हर संदेश पढ़ते हैं और सुधार करेंगे।",
     what: "क्या गलत हुआ?",
     tapAll: "जो लागू हों, सब चुनें",
-    issues: ["खाना", "सेवा", "इंतज़ार", "साफ़-सफ़ाई", "बिल"],
     detail: "और बताएं",
     name: "आपका नाम",
     phone: "WhatsApp / फ़ोन",
@@ -132,8 +144,18 @@ export const T = {
   },
 } as const;
 
+/** Complaint topics for each kind of business, in the same order in both languages. */
+export const ISSUES: Record<Family, { en: readonly string[]; hi: readonly string[] }> = {
+  food: { en: ["Food", "Service", "Waiting time", "Cleanliness", "Billing"], hi: ["खाना", "सेवा", "इंतज़ार", "साफ़-सफ़ाई", "बिल"] },
+  education: {
+    en: ["Teaching", "Staff behaviour", "Fees", "Facilities", "Communication"],
+    hi: ["पढ़ाई", "स्टाफ़ का व्यवहार", "फ़ीस", "सुविधाएं", "जानकारी व संपर्क"],
+  },
+  general: { en: ["Service", "Staff behaviour", "Waiting time", "Cleanliness", "Billing"], hi: ["सेवा", "स्टाफ़ का व्यवहार", "इंतज़ार", "साफ़-सफ़ाई", "बिल"] },
+};
+
 /** Issue keys stored in the database are always the English labels. */
-export const ISSUE_KEYS = T.en.issues;
+export const ISSUE_KEYS = [...new Set(Object.values(ISSUES).flatMap((i) => i.en))] as [string, ...string[]];
 
 /** Normalises an Indian mobile number to 10 digits, or returns null if invalid. */
 export function normalizeIndianMobile(raw: string): string | null {

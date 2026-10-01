@@ -7,7 +7,15 @@ export function qrPath(text: string): { d: string; size: number } {
   const size = qr.modules.size;
   const data = qr.modules.data;
   let d = "";
-  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (data[r * size + c]) d += `M${c} ${r}h1v1h-1z`;
+  // One rectangle per horizontal run of dark modules keeps the path small.
+  for (let r = 0; r < size; r++)
+    for (let c = 0; c < size; c++) {
+      if (!data[r * size + c]) continue;
+      let n = 1;
+      while (c + n < size && data[r * size + c + n]) n++;
+      d += `M${c} ${r}h${n}v1h-${n}z`;
+      c += n - 1;
+    }
   return { d, size };
 }
 

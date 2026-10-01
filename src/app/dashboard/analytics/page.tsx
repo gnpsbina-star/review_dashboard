@@ -33,7 +33,8 @@ async function loadAnalytics(a: Access, days: number) {
   ]);
 
   const [staff, branches] = await Promise.all([
-    db.staff.findMany({ where: { organizationId: a.org.id, id: { in: byStaff.map((s) => s.staffId!) } }, select: { id: true, name: true } }),
+    // Removed staff still count in the totals above but leave the rankings.
+    db.staff.findMany({ where: { organizationId: a.org.id, id: { in: byStaff.map((s) => s.staffId!) }, removedAt: null }, select: { id: true, name: true } }),
     db.branch.findMany({ where: { organizationId: a.org.id, id: { in: byBranch.map((b) => b.branchId) } }, select: { id: true, name: true, business: { select: { name: true } } } }),
   ]);
   return { agg, prevAgg, mix, google, facebook, complaints, fast: Number(fastResolved[0]?.n ?? 0), weekly, byStaff, staffComplaints, byBranch, branchComplaints, staff, branches };
@@ -56,7 +57,8 @@ export default async function AnalyticsPage(props: PageProps<"/dashboard/analyti
   const staffName = new Map(d.staff.map((s) => [s.id, s.name]));
   const branchName = new Map(d.branches.map((b) => [b.id, `${b.business.name} · ${b.name}`]));
   const staffRows = d.byStaff
-    .map((s) => ({ name: staffName.get(s.staffId!) ?? "Former staff", branch: branchName.get(s.branchId) ?? "", n: s._count, avg: s._avg.rating ?? 0, complaints: d.staffComplaints.find((c) => c.staffId === s.staffId)?._count ?? 0 }))
+    .filter((s) => staffName.has(s.staffId!))
+    .map((s) => ({ name: staffName.get(s.staffId!)!, branch: branchName.get(s.branchId) ?? "", n: s._count, avg: s._avg.rating ?? 0, complaints: d.staffComplaints.find((c) => c.staffId === s.staffId)?._count ?? 0 }))
     .sort((x, y) => y.n - x.n);
   const branchRows = d.byBranch
     .map((b) => ({ name: branchName.get(b.branchId) ?? "", n: b._count, avg: b._avg.rating ?? 0, complaints: d.branchComplaints.find((c) => c.branchId === b.branchId)?._count ?? 0 }))

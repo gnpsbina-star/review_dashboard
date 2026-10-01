@@ -75,6 +75,18 @@ describe("Google click logging", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ rating: 5, editedSuggestion: true, comment: "Lovely coffee and friendly staff here!" });
   });
+  it("keeps the latest copied text when the customer picks a different suggestion", async () => {
+    const device = { deviceToken: "device-token-dddddddd" };
+    await post(googleClick, { code: T.qr1.code, rating: 5, text: "First suggestion that was copied automatically.", language: "en", edited: false, ...device });
+    await post(googleClick, { code: T.qr1.code, rating: 5, text: "Second one, picked and edited by the customer.", language: "hinglish", edited: true, ...device });
+    const rows = await db.review.findMany({ where: { source: "GOOGLE_REDIRECT" } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ comment: "Second one, picked and edited by the customer.", language: "hinglish", editedSuggestion: true });
+  });
+  it("accepts complaint topics for every kind of business", async () => {
+    expect((await post(feedback, complaint({ issues: ["Teaching", "Fees"] }))).status).toBe(200);
+    expect((await post(feedback, complaint({ issues: ["Nonsense"], deviceToken: "device-token-eeeeeeee" }))).status).toBe(400);
+  });
   it("refuses low ratings on the Google route", async () => {
     expect((await post(googleClick, { code: T.qr1.code, rating: 2 })).status).toBe(400);
   });

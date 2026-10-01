@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BusinessFields } from "@/components/dashboard/BusinessFields";
+import { businessTypeOf, TYPE_LABELS } from "@/lib/business-type";
 import { Flash } from "@/components/dashboard/Flash";
 import { BusinessLogo } from "@/components/ui";
 import { createBusiness } from "./actions";
@@ -33,7 +34,7 @@ export default async function BusinessesPage(props: PageProps<"/dashboard/busine
             <div className="mhead">
               <div className="toolbar" style={{ gap: 12 }}>
                 <BusinessLogo businessId={b.id} name={b.name} logoVersion={b.logoVersion} color={readableBrandColor(b.brandColor).color} size={42} />
-                <div><h3 style={{ fontSize: 17 }}>{b.name}</h3><div className="who">{b.category}{b.address ? ` · ${b.address}` : ""}</div></div>
+                <div><h3 style={{ fontSize: 17 }}>{b.name}</h3><div className="who">{[TYPE_LABELS[businessTypeOf(b)], b.category !== TYPE_LABELS[businessTypeOf(b)] ? b.category : null, b.address].filter(Boolean).join(" · ")}</div></div>
               </div>
               <Link className="btn-ghost btn-sm" href={`/dashboard/businesses/${b.id}`}>Edit business</Link>
             </div>

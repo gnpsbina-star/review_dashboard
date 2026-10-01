@@ -76,3 +76,28 @@ export async function removeStaffPhoto(form: FormData) {
   await audit({ organizationId: a.org.id, actorUserId: a.user.id, actorEmail: a.user.email, action: "staff.photo.remove", entity: "Staff", entityId: s.id });
   redirect(`/dashboard/staff/${s.id}?saved=photo-removed`);
 }
+
+/** Hides a staff member everywhere. Their past ratings stay, and their printed QR code becomes a branch code. */
+export async function removeStaff(form: FormData) {
+  const a = await requireAccess({ ownerOnly: true });
+  const s = await ownerStaff(a, form.get("staffId"));
+  if (!s.removedAt) {
+    await db.staff.update({ where: { id: s.id }, data: { removedAt: new Date(), active: false } });
+    await audit({ organizationId: a.org.id, actorUserId: a.user.id, actorEmail: a.user.email, action: "staff.remove", entity: "Staff", entityId: s.id });
+  }
+  revalidatePath(`/dashboard/branches/${s.branchId}`);
+  revalidatePath("/dashboard/qr");
+  redirect(`/dashboard/branches/${s.branchId}?saved=staff-removed`);
+}
+
+export async function restoreStaff(form: FormData) {
+  const a = await requireAccess({ ownerOnly: true });
+  const s = await ownerStaff(a, form.get("staffId"));
+  if (s.removedAt) {
+    await db.staff.update({ where: { id: s.id }, data: { removedAt: null, active: true } });
+    await audit({ organizationId: a.org.id, actorUserId: a.user.id, actorEmail: a.user.email, action: "staff.restore", entity: "Staff", entityId: s.id });
+  }
+  revalidatePath(`/dashboard/branches/${s.branchId}`);
+  revalidatePath("/dashboard/qr");
+  redirect(`/dashboard/branches/${s.branchId}?saved=staff-restored`);
+}

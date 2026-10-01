@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cookieJar, NotFoundError, RedirectError } from "../support/next-mocks";
 import { makeTenant, resetDb } from "../support/db";
 import { signInAs } from "../support/session";
-import { removeStaffPhoto, updateStaff, uploadStaffPhoto } from "@/app/dashboard/staff/actions";
+import { removeStaff, removeStaffPhoto, restoreStaff, updateStaff, uploadStaffPhoto } from "@/app/dashboard/staff/actions";
+import { setStaffActive } from "@/app/dashboard/businesses/actions";
+import { loadQrContext } from "@/lib/data/customer";
+import { branchStands } from "@/lib/data/qr-list";
+import { loadIdCards } from "@/lib/data/id-cards";
+import { getAccess } from "@/lib/access";
+import { newShortCode } from "@/lib/shortcode";
 import { GET as staffPhoto } from "@/app/api/staff-photo/[id]/route";
 import { decryptField } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -123,5 +129,45 @@ describe("staff photos", () => {
     await db.subscription.update({ where: { organizationId: T.org.id }, data: { currentPeriodEnd: new Date(Date.now() - 100 * 86_400_000) } });
     await runSubscriptionJobs();
     expect(await db.storedBlob.count()).toBe(0);
+  });
+});
+
+describe("removing staff", () => {
+  async function staffCode() {
+    return db.qrCode.create({ data: { code: newShortCode(), organizationId: T.org.id, branchId: T.b1.id, kind: "STAFF", key: `staff:${staffId}`, staffId } });
+  }
+
+  it("hides them everywhere, keeps their ratings, and turns their QR into a branch code", async () => {
+    const qr = await staffCode();
+    const review = await db.review.create({ data: { organizationId: T.org.id, branchId: T.b1.id, rating: 5, source: "GOOGLE_REDIRECT", staffId, staffName: "Ravi" } });
+    await signInAs(T.owner.id);
+    expect(await redirectOf(removeStaff(form({ staffId })))).toBe(`/dashboard/branches/${T.b1.id}?saved=staff-removed`);
+
+    const s = await db.staff.findUniqueOrThrow({ where: { id: staffId } });
+    expect(s.removedAt).not.toBeNull();
+    expect(s.active).toBe(false);
+    expect((await branchStands(T.org.id, T.b1.id, "all"))!.stands.map((c) => c.kind)).toEqual(["BRANCH"]);
+    expect(await loadIdCards((await getAccess())!, [staffId])).toHaveLength(0);
+    const ctx = await loadQrContext(qr.code);
+    expect(ctx?.staffName).toBeNull(); // the printed card still works, without a name
+    expect((await db.review.findUniqueOrThrow({ where: { id: review.id } })).staffId).toBe(staffId);
+    expect(await db.auditLog.count({ where: { action: "staff.remove", entityId: staffId } })).toBe(1);
+
+    // Deactivate/Reactivate can't bring them back; only Restore can.
+    await expect(setStaffActive(form({ staffId, active: "true" }))).rejects.toBeInstanceOf(NotFoundError);
+    expect(await redirectOf(restoreStaff(form({ staffId })))).toContain("saved=staff-restored");
+    expect(await db.staff.findUniqueOrThrow({ where: { id: staffId } })).toMatchObject({ removedAt: null, active: true });
+    expect((await loadQrContext(qr.code))?.staffName).toBe("Ravi");
+    expect((await branchStands(T.org.id, T.b1.id, "STAFF"))!.stands).toHaveLength(1);
+  });
+
+  it("only Client Owners of the same account can remove or restore", async () => {
+    await signInAs(T.admin.id);
+    await expect(removeStaff(form({ staffId }))).rejects.toBeInstanceOf(NotFoundError);
+    const other = await makeTenant("Other");
+    await signInAs(other.owner.id);
+    await expect(removeStaff(form({ staffId }))).rejects.toBeInstanceOf(NotFoundError);
+    await expect(restoreStaff(form({ staffId }))).rejects.toBeInstanceOf(NotFoundError);
+    expect((await db.staff.findUniqueOrThrow({ where: { id: staffId } })).removedAt).toBeNull();
   });
 });

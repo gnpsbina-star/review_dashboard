@@ -3,11 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Flash } from "@/components/dashboard/Flash";
 import { initials } from "@/components/ui";
-import { removeStaffPhoto, updateStaff } from "../actions";
+import { removeStaff, removeStaffPhoto, restoreStaff, updateStaff } from "../actions";
 import { prepareIdCards } from "../../id-cards/actions";
 import { StaffPhotoEditor } from "@/components/dashboard/StaffPhotoEditor";
 import { readableBrandColor } from "@/lib/contrast";
 import { setStaffActive } from "../../businesses/actions";
+import { ConfirmButton } from "@/components/dashboard/ConfirmButton";
 import { requireAccess } from "@/lib/access";
 import { decryptField } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -33,7 +34,7 @@ export default async function StaffPage(props: PageProps<"/dashboard/staff/[id]"
         <div>
           <Link href={`/dashboard/branches/${s.branchId}`} className="help">← {s.branch.business.name} · {s.branch.name}</Link>
           <h1>{s.name}</h1>
-          <div className="who">{s.employeeCode ?? "No employee ID yet"} · {s.active ? "Active" : "Inactive"}</div>
+          <div className="who">{s.employeeCode ?? "No employee ID yet"} · {s.removedAt ? "Removed" : s.active ? "Active" : "Inactive"}</div>
         </div>
         {s.active && (
           <form action={prepareIdCards} className="toolbar">
@@ -87,15 +88,36 @@ export default async function StaffPage(props: PageProps<"/dashboard/staff/[id]"
         </form>
       </section>
 
-      <section className="panel">
-        <h3>{s.active ? "Deactivate" : "Reactivate"}</h3>
-        <p className="muted">{s.active ? "Inactive staff are hidden from new ratings and ID card printing. Their past ratings stay." : "Reactivating brings back their QR code and ID card."}</p>
-        <form action={setStaffActive}>
-          <input type="hidden" name="staffId" value={s.id} />
-          <input type="hidden" name="active" value={s.active ? "false" : "true"} />
-          <button className={s.active ? "btn-danger" : "btn-ghost"} type="submit">{s.active ? "Deactivate" : "Reactivate"}</button>
-        </form>
-      </section>
+      {s.removedAt ? (
+        <section className="panel">
+          <h3>Restore</h3>
+          <p className="muted">This staff member was removed. Restoring brings back their QR code, ID card and place in the staff rankings.</p>
+          <form action={restoreStaff}>
+            <input type="hidden" name="staffId" value={s.id} />
+            <button className="btn" type="submit">Restore</button>
+          </form>
+        </section>
+      ) : (
+        <>
+          <section className="panel">
+            <h3>{s.active ? "Deactivate" : "Reactivate"}</h3>
+            <p className="muted">{s.active ? "For a short break, like leave. Inactive staff are hidden from new ratings and ID card printing. Their past ratings stay." : "Reactivating brings back their QR code and ID card."}</p>
+            <form action={setStaffActive}>
+              <input type="hidden" name="staffId" value={s.id} />
+              <input type="hidden" name="active" value={s.active ? "false" : "true"} />
+              <button className="btn-ghost" type="submit">{s.active ? "Deactivate" : "Reactivate"}</button>
+            </form>
+          </section>
+          <section className="panel">
+            <h3>Remove</h3>
+            <p className="muted">For someone who has left. They disappear from staff lists, ID cards, the QR studio and staff rankings. Their past ratings still count in branch averages, and their printed QR code keeps working as a branch code. You can restore them later.</p>
+            <form action={removeStaff}>
+              <input type="hidden" name="staffId" value={s.id} />
+              <ConfirmButton className="btn-danger" message={`Remove ${s.name}? You can restore them later from the branch page.`}>Remove {s.name}</ConfirmButton>
+            </form>
+          </section>
+        </>
+      )}
     </>
   );
 }

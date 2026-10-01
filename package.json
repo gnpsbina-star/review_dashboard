@@ -12,10 +12,12 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx --conditions=react-server prisma/seed.ts",
-    "postinstall": "prisma generate && node scripts/copy-mediapipe.mjs",
+    "postinstall": "prisma generate && node scripts/copy-mediapipe.mjs && node scripts/copy-fonts.mjs",
     "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
+    "@fontsource/noto-sans-devanagari": "^5.3.0",
+    "@fontsource/sora": "^5.3.0",
     "@mediapipe/tasks-vision": "^1.0.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",

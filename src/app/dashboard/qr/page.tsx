@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { QrStand } from "@/components/dashboard/QrStand";
+import { QrCard } from "@/components/dashboard/QrCard";
+import { CardDownloads, SheetDownload } from "@/components/dashboard/QrCardDownloads";
 import { IconShield } from "@/components/icons";
 import { createStaffCodes, createTableCodes } from "./actions";
 import { requireAccess } from "@/lib/access";
 import { db } from "@/lib/db";
 import { branchStands, type QrFilter } from "@/lib/data/qr-list";
+import { CARD_SIZES, PAPER, type CardSize } from "@/lib/qr-card";
 
 export const metadata: Metadata = { title: "QR studio" };
 
@@ -27,21 +29,22 @@ export default async function QrStudio(props: PageProps<"/dashboard/qr">) {
   }
   const branchId = typeof sp.branch === "string" && branches.some((b) => b.id === sp.branch) ? sp.branch : branches[0].id;
   const kind = (typeof sp.kind === "string" && ["BRANCH", "TABLE", "STAFF"].includes(sp.kind) ? sp.kind : "all") as QrFilter;
+  const size = (typeof sp.size === "string" && (CARD_SIZES as string[]).includes(sp.size) ? sp.size : "a6") as CardSize;
   const data = (await branchStands(a.org.id, branchId, kind))!;
   const tables = data.stands.filter((s) => s.kind === "TABLE").length;
-  const base = `/dashboard/qr?branch=${branchId}`;
+  const base = `/dashboard/qr?branch=${branchId}&size=${size}`;
 
   return (
     <>
       <div className="mhead">
         <div><h1>QR studio</h1><div className="who">QR codes for stands, stickers and table cards</div></div>
-        <Link className="btn" href={`/dashboard/qr/print?branch=${branchId}&kind=${kind}`}>Print sheet</Link>
       </div>
       <div className="notice"><IconShield /><span><b>These codes are permanent.</b> Each one is a short code on our own address. If the Google link, business name or website address changes later, printed stands keep working. Nothing needs reprinting.</span></div>
 
       <div className="filters">
         <form action="/dashboard/qr" className="toolbar">
           <label className="sr-only" htmlFor="qr-branch">Branch</label>
+          <input type="hidden" name="size" value={size} />
           <select id="qr-branch" name="branch" className="select" defaultValue={branchId}>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.business.name} · {b.name}</option>)}
           </select>
@@ -74,17 +77,35 @@ export default async function QrStudio(props: PageProps<"/dashboard/qr">) {
         </form>
       </div>
 
+      <section className="panel">
+        <div className="toolbar" style={{ justifyContent: "space-between", gap: 12 }}>
+          <div className="seg" role="group" aria-label="Card size">
+            {CARD_SIZES.map((k) => (
+              <Link key={k} href={`/dashboard/qr?branch=${branchId}&kind=${kind}&size=${k}`} aria-current={size === k}>
+                {PAPER[k].label} · {PAPER[k].use}
+              </Link>
+            ))}
+          </div>
+          <div className="toolbar">
+            <Link className="btn-ghost" href={`/dashboard/qr/print?branch=${branchId}&kind=${kind}&size=${size}`}>Print</Link>
+            <SheetDownload cards={data.stands} size={size} />
+          </div>
+        </div>
+        <p className="cap" style={{ margin: 0 }}>
+          {size === "a6" ? "4 cards per A4 sheet, with dashed cutting lines." : size === "a5" ? "2 cards per A4 sheet (landscape), with a dashed cutting line." : "One poster per A4 page."}{" "}
+          The PDF is print-ready at 300 dpi. Each card also downloads on its own as PDF, a 4000-pixel PNG for flex banners, or SVG for designers.{" "}
+          <Link href={`/dashboard/businesses/${data.branch.businessId}`}>Change the headline</Link>
+        </p>
+      </section>
+
       {data.stands.length === 0 ? (
         <div className="placeholder"><b>No codes of this type yet.</b></div>
       ) : (
         <div className="qr-grid">
           {data.stands.map((s) => (
-            <div key={s.id} style={{ display: "grid", gap: 8 }}>
-              <QrStand {...s} />
-              <div className="toolbar" style={{ justifyContent: "center" }}>
-                <a className="btn-ghost btn-sm" href={`/api/qr/${s.id}?format=png`} download>PNG</a>
-                <a className="btn-ghost btn-sm" href={`/api/qr/${s.id}?format=svg`} download>SVG</a>
-              </div>
+            <div key={s.id} className="qr-cell">
+              <QrCard data={s} className="qr-card" />
+              <CardDownloads card={s} size={size} />
             </div>
           ))}
         </div>

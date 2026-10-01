@@ -10,6 +10,8 @@ const MESSAGES: Record<string, string> = {
   "saved:removed": "Removed from the team and signed out.",
   "saved:photo": "Photo saved. It has been cropped to a passport-style portrait.",
   "saved:photo-removed": "Photo removed.",
+  "saved:staff-removed": "Staff member removed. Their past ratings are kept, and their printed QR code now works as a branch code.",
+  "saved:staff-restored": "Staff member restored, with their QR code and ID card.",
   "error:staff-details": "Check the details: name is required; employee ID can use letters, numbers and dashes.",
   "error:staff-phone": "Enter a 10-digit mobile number for the emergency contact, or leave it empty.",
   "error:staff-code": "Another staff member already has that employee ID.",

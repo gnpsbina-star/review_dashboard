@@ -51,3 +51,6 @@ next-env.d.ts
 
 # copied from node_modules by scripts/copy-mediapipe.mjs
 /public/mediapipe/
+
+# copied from node_modules by scripts/copy-fonts.mjs
+/public/fonts/

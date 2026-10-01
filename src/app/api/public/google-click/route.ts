@@ -40,6 +40,9 @@ export async function POST(req: Request) {
   if (dup?.source === "FACEBOOK_REDIRECT") {
     // Went to Facebook first, now Google: record the visit as Google + Facebook.
     await db.review.update({ where: { id: dup.id }, data: { source: "GOOGLE_REDIRECT", facebookSharedAt: dup.facebookSharedAt ?? dup.createdAt } });
+  } else if (dup && b.text) {
+    // Came back and copied a different suggestion: keep the latest text, which is the one they most likely posted.
+    await db.review.update({ where: { id: dup.id }, data: { comment: b.text, language: b.language ?? null, editedSuggestion: b.edited ?? null } });
   } else if (!dup) {
     await db.review.create({
       data: {

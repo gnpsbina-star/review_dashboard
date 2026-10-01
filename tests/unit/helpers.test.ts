@@ -1,13 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildPrompt } from "@/lib/ai/prompt";
 import { templateSuggestions } from "@/lib/ai/templates";
+import { guessType } from "@/lib/business-type";
 import { cleanSuggestions, parseJsonArray } from "@/lib/ai/validate";
 import { contrastWithWhite, readableBrandColor } from "@/lib/contrast";
 import { normalizeIndianMobile } from "@/lib/customer-i18n";
 import { decryptField, encryptField, keyedHash } from "@/lib/crypto";
 import { isShortCode, newShortCode, slugify } from "@/lib/shortcode";
 
-const profile = { businessName: "Kesar & Clove", branchName: "Indiranagar", cityArea: "Indiranagar, Bengaluru", category: "Restaurant", highlights: ["filter coffee", "paneer tikka"], tone: "Warm" };
+const profile = { businessName: "Kesar & Clove", branchName: "Indiranagar", cityArea: "Indiranagar, Bengaluru", type: "RESTAURANT" as const, category: "Restaurant", highlights: ["filter coffee", "paneer tikka"], tone: "Warm" };
+const school = { businessName: "Bright Minds", branchName: "Jayanagar", cityArea: "Jayanagar, Bengaluru", type: "COACHING" as const, category: "NEET coaching", highlights: ["Experienced faculty", "Weekly tests"], tone: "Professional and caring" };
+const FOOD_WORDS = /\b(food|tasty|dish|dishes|menu|meal|dining|paisa vasool|must-try|khaana|khana|waiter)\b|खाना|स्वाद/i;
 
 describe("field encryption", () => {
   it("round-trips and uses a fresh IV each time", () => {
@@ -102,11 +105,43 @@ describe("AI suggestions", () => {
     expect(p).toMatch(/JSON array/);
   });
   it("template fallback produces enough distinct suggestions", () => {
-    for (const lang of ["en", "hi", "hinglish"] as const) {
-      const t = templateSuggestions(profile, lang, 5, 50);
-      expect(new Set(t).size).toBe(t.length);
-      expect(t.length).toBeGreaterThanOrEqual(20);
-    }
+    for (const p of [profile, school, { ...school, type: "CLINIC" as const, highlights: [] }])
+      for (const lang of ["en", "hi", "hinglish"] as const)
+        for (const tier of [4, 5] as const) {
+          const t = templateSuggestions(p, lang, tier, 50);
+          expect(new Set(t).size).toBe(t.length);
+          expect(t.length).toBeGreaterThanOrEqual(20);
+          expect(t.every((x) => cleanSuggestions([x.replaceAll("{{staff}}", "Ravi")], lang, 1).length === 1 || lang === "hi")).toBe(true);
+        }
+  });
+  it("schools, coaching and other businesses never get food wording", () => {
+    for (const type of ["SCHOOL", "COACHING", "CLINIC", "SALON", "GYM", "RETAIL", "OTHER"] as const)
+      for (const lang of ["en", "hi", "hinglish"] as const)
+        for (const tier of [4, 5] as const)
+          for (const text of templateSuggestions({ ...school, type, highlights: [] }, lang, tier, 50)) expect(text).not.toMatch(FOOD_WORDS);
+  });
+  it("education suggestions mix parent and student voices", () => {
+    const t = templateSuggestions(school, "en", 5, 50);
+    expect(t.filter((x) => /parent|our child|our son|my daughter|my child/i.test(x)).length).toBeGreaterThan(10);
+    expect(t.filter((x) => /my studies|to study|learnt|my confidence|my classes/i.test(x)).length).toBeGreaterThan(10);
+    expect(t.some((x) => x.includes("the experienced faculty"))).toBe(true);
+  });
+  it("prompts are worded for the business type", () => {
+    const edu = buildPrompt({ profile: school, language: "en", ratingTier: 4, count: 60 });
+    expect(edu).toContain("Coaching institute (NEET coaching)");
+    expect(edu).toMatch(/parents and students/);
+    expect(edu).toMatch(/Never mention food/);
+    expect(edu).not.toMatch(/busy evening|Do not invent dishes/);
+    expect(buildPrompt({ profile, language: "en", ratingTier: 4, count: 60 })).toMatch(/busy evening/);
+  });
+  it("guesses a business type from older free-text categories", () => {
+    const cases: [string, string][] = [
+      ["CBSE school", "SCHOOL"], ["Play school", "SCHOOL"], ["NEET coaching", "COACHING"], ["Sharma Tuition Classes", "COACHING"],
+      ["Family restaurant", "RESTAURANT"], ["Bakery and café", "RESTAURANT"], ["Cafe", "RESTAURANT"], ["Coffee shop", "RESTAURANT"],
+      ["Medical store", "RETAIL"], ["Jewellery showroom", "RETAIL"], ["Dental clinic", "CLINIC"], ["Multi-speciality hospital", "CLINIC"],
+      ["Unisex salon", "SALON"], ["Barber shop", "RETAIL"], ["Gym", "GYM"], ["Yoga studio", "GYM"], ["Local business", "OTHER"],
+    ];
+    for (const [cat, type] of cases) expect([cat, guessType(cat)]).toEqual([cat, type]);
   });
 });
 

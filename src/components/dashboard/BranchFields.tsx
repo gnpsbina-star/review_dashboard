@@ -1,4 +1,6 @@
-export function BranchFields({ br }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; facebookReviewUrl?: string | null; languages: string[]; highlights: string[] } }) {
+import { HIGHLIGHT_EXAMPLES, type BusinessType } from "@/lib/business-type";
+
+export function BranchFields({ br, type }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; facebookReviewUrl?: string | null; languages: string[]; highlights: string[] }; type: BusinessType }) {
   const langs = br?.languages ?? ["en", "hi", "hinglish"];
   return (
     <div className="form-grid">
@@ -25,7 +27,7 @@ export function BranchFields({ br }: { br?: { name: string; cityArea: string; go
       </fieldset>
       <div className="field full">
         <label htmlFor="br-hl">Top highlights (3 to 5, separated by commas)</label>
-        <input id="br-hl" name="highlights" maxLength={220} placeholder="Filter coffee, Paneer tikka, Polite staff, Fast service" defaultValue={br?.highlights.join(", ")} />
+        <input id="br-hl" name="highlights" maxLength={220} placeholder={HIGHLIGHT_EXAMPLES[type]} defaultValue={br?.highlights.join(", ")} />
         <span className="help">The AI mentions only these, so suggestions never invent things you don’t offer.</span>
       </div>
     </div>

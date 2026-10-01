@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireAccess, type Access } from "@/lib/access";
 import { refreshBranchSuggestions } from "@/lib/ai/pool";
 import { audit } from "@/lib/audit";
+import { BUSINESS_TYPES, TYPE_LABELS } from "@/lib/business-type";
 import { isHexColor } from "@/lib/contrast";
 import { createQrCode } from "@/lib/data/qr";
 import { db } from "@/lib/db";
@@ -20,14 +21,20 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 const optText = (max: number) => z.string().trim().max(max).optional().transform((v) => v || null);
 
 const GOOGLE_HOSTS = ["search.google.com", "www.google.com", "google.com", "g.page", "maps.app.goo.gl", "maps.google.com", "goo.gl", "g.co"];
-const BusinessInput = z.object({
-  name: text(80),
-  category: text(80),
-  address: optText(200),
-  brandColor: z.string().refine(isHexColor, "Pick a colour"),
-  brandTone: text(60),
-  deviceLimitHours: z.coerce.number().int().min(1).max(24),
-});
+const BusinessInput = z
+  .object({
+    name: text(80),
+    type: z.enum(BUSINESS_TYPES),
+    category: optText(80),
+    address: optText(200),
+    brandColor: z.string().refine(isHexColor, "Pick a colour"),
+    brandTone: text(60),
+    deviceLimitHours: z.coerce.number().int().min(1).max(24),
+    qrHeadline: optText(60),
+    qrHeadlineHi: optText(60),
+  })
+  // The description is optional; the type's name stands in for it.
+  .transform((v) => ({ ...v, category: v.category ?? TYPE_LABELS[v.type] }));
 
 function fields(form: FormData, keys: string[]) {
   return Object.fromEntries(keys.map((k) => [k, form.get(k) ?? undefined]));
@@ -55,7 +62,7 @@ function log(a: Access, action: string, entity: string, entityId: string, meta?:
 
 export async function createBusiness(form: FormData) {
   const a = await requireAccess({ ownerOnly: true });
-  const v = BusinessInput.safeParse({ ...fields(form, ["name", "category", "address", "brandColor", "brandTone"]), deviceLimitHours: form.get("deviceLimitHours") ?? 2 });
+  const v = BusinessInput.safeParse({ ...fields(form, ["name", "type", "category", "address", "brandColor", "brandTone"]), deviceLimitHours: form.get("deviceLimitHours") ?? 2 });
   if (!v.success) redirect("/dashboard/businesses?error=business");
   const b = await db.business.create({ data: { ...v.data, organizationId: a.org.id } });
   await log(a, "business.create", "Business", b.id);
@@ -65,12 +72,18 @@ export async function createBusiness(form: FormData) {
 export async function updateBusiness(form: FormData) {
   const a = await requireAccess({ ownerOnly: true });
   const b = await ownerBusiness(a, form.get("businessId"));
-  const v = BusinessInput.safeParse(fields(form, ["name", "category", "address", "brandColor", "brandTone", "deviceLimitHours"]));
+  const v = BusinessInput.safeParse(fields(form, ["name", "type", "category", "address", "brandColor", "brandTone", "deviceLimitHours", "qrHeadline", "qrHeadlineHi"]));
   if (!v.success) redirect(`/dashboard/businesses/${b.id}?error=business`);
-  const aiChanged = v.data.name !== b.name || v.data.category !== b.category || v.data.brandTone !== b.brandTone;
+  const aiChanged = v.data.name !== b.name || v.data.type !== b.type || v.data.category !== b.category || v.data.brandTone !== b.brandTone;
   await db.business.update({ where: { id: b.id }, data: v.data });
-  if (aiChanged) await db.branch.updateMany({ where: { businessId: b.id }, data: { aiSettingsUpdatedAt: new Date() } });
-  await log(a, "business.update", "Business", b.id);
+  if (aiChanged) {
+    await db.branch.updateMany({ where: { businessId: b.id }, data: { aiSettingsUpdatedAt: new Date() } });
+    const branches = await db.branch.findMany({ where: { businessId: b.id, archivedAt: null }, select: { id: true } });
+    after(async () => {
+      for (const br of branches) await refreshBranchSuggestions(br.id).catch((e) => console.error("[ai] refresh failed", e instanceof Error ? e.message : e));
+    });
+  }
+  await log(a, "business.update", "Business", b.id, { aiChanged });
   revalidatePath("/dashboard", "layout");
   redirect(`/dashboard/businesses/${b.id}?saved=1`);
 }
@@ -257,7 +270,8 @@ export async function setStaffActive(form: FormData) {
   const a = await requireAccess({ ownerOnly: true });
   const id = Id.safeParse(form.get("staffId"));
   if (!id.success) notFound();
-  const s = await db.staff.findFirst({ where: { id: id.data, organizationId: a.org.id } });
+  // Removed staff come back only through Restore.
+  const s = await db.staff.findFirst({ where: { id: id.data, organizationId: a.org.id, removedAt: null } });
   if (!s) notFound();
   const active = form.get("active") === "true";
   await db.staff.update({ where: { id: s.id }, data: { active } });

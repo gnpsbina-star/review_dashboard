@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { ReviewFlow, type FlowProps } from "@/components/customer/ReviewFlow";
 import { LockedReviewPage } from "@/components/customer/LockedReviewPage";
 import { sampleSuggestions } from "@/lib/ai/pool";
+import { businessTypeOf, familyOf } from "@/lib/business-type";
 import { readableBrandColor } from "@/lib/contrast";
 import { loadQrContext } from "@/lib/data/customer";
 import { env } from "@/lib/env";
@@ -31,17 +32,19 @@ export default async function ReviewPage(props: PageProps<"/r/[code]">) {
     facebookUrl: ctx.branch.facebookReviewUrl,
     brand,
   };
+  const family = familyOf(businessTypeOf(ctx.business));
   if (!ctx.serviceable) return <LockedReviewPage {...common} />;
 
   const langs = ctx.branch.languages;
   const [four, five] = await Promise.all([
-    sampleSuggestions(ctx.branch.id, 4, ctx.staffName),
-    sampleSuggestions(ctx.branch.id, 5, ctx.staffName),
+    sampleSuggestions(ctx.branch, 4, ctx.staffName),
+    sampleSuggestions(ctx.branch, 5, ctx.staffName),
   ]);
   const onlyEnabled = (list: typeof four) => list.filter((s) => langs.includes(s.language));
   const flow: FlowProps = {
     ...common,
     code: ctx.qr.code,
+    family,
     tableLabel: ctx.qr.tableLabel,
     staffName: ctx.staffName,
     languages: langs,

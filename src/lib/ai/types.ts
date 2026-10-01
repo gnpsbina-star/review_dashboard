@@ -1,3 +1,5 @@
+import type { BusinessType } from "@/lib/business-type";
+
 export type Lang = "en" | "hi" | "hinglish";
 export type ProviderName = "GEMINI" | "ANTHROPIC" | "OPENAI" | "MOCK";
 
@@ -5,6 +7,7 @@ export interface BranchProfile {
   businessName: string;
   branchName: string;
   cityArea: string;
+  type: BusinessType;
   category: string;
   highlights: string[];
   tone: string;

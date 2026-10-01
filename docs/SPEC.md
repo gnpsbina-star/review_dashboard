@@ -9,7 +9,7 @@
 
 A **multi-tenant SaaS** that Synergy Technologies sells to businesses on a **yearly subscription**. Each client can register several businesses, each with its own branding and branches. Customers scan a QR code at a branch and then:
 
-- **4–5★:** get editable, AI-suggested review text and a 1-tap "Copy & Post on Google" button.
+- **4–5★:** Google's review page opens straight away with a suggested review already copied; they paste and post. The full list of editable suggestions stays open behind it.
 - **1–3★:** are shown a private feedback form first. The complaint goes straight to the branch manager for resolution. A smaller "post publicly on Google" link stays visible to every customer.
 
 All of a client's businesses and branches appear in **one unified dashboard**.
@@ -22,8 +22,8 @@ flowchart TD
         Page --> Sub{"Subscription active?"}
         Sub -->|Locked| Basic["Basic page: 'Review us on Google' button only<br/>(no AI, no form, no data collected)"]
         Sub -->|Active / Trial / Grace| Rate{"Star rating"}
-        Rate -->|4–5★| AI["4–5 random AI suggestions<br/>(editable, language badges)"]
-        AI --> Copy["📋 Copy & Post on Google<br/>(or Skip & Write My Own)"]
+        Rate -->|4–5★| AI["Random suggestion copied +<br/>Google opens in a new tab"]
+        AI --> Copy["List stays behind: pick another,<br/>📋 Copy & Post on Google"]
         Copy --> Log["Log GOOGLE_REDIRECT event"]
         Rate -->|1–3★| Form["Private feedback form<br/>+ smaller 'Post on Google instead' link"]
         Form --> Guard["Turnstile + device limit (2 h) + IP cap"]
@@ -99,13 +99,13 @@ Platform (Synergy Technologies)
 - **Branch slugs are locked** once the branch is created. Names, Google URLs and Place IDs can change freely.
 
 ### 4.2 4–5★ positive flow
-1. Show **4–5 random suggestions** from the branch's pre-generated pool, which loads instantly.
-2. Wording differs for 4★ and 5★. Some suggestions mention the staff member when the QR carries one.
+1. The star tap itself copies a **random suggestion in the customer's page language** and opens the branch's Google review URL in a new tab. Google does not let any site fill in its review box, so the customer pastes it (the page says how). If the browser blocks the new tab, an "Open Google" button takes its place.
+2. The review page stays open behind Google with 4 suggestions from the branch's pre-generated pool. Wording differs for 4★ and 5★, and for the business type (schools and coaching: a mix of parent and student voices; restaurants: food and service; everything else: neutral). Some suggestions mention the staff member when the QR carries one.
 3. Language badges: 🇬🇧 English, 🇮🇳 Hindi (Devanagari), 🗣️ Hinglish (Roman script), as enabled for the branch.
 4. Cards are **editable** before copying, so the customer can make the review their own.
 5. **"📋 Copy & Post on Google"** copies the text to the clipboard and opens the branch's Google review URL.
 6. **"Skip & Write My Own on Google"** is always visible.
-7. Each Google click is logged as a `GOOGLE_REDIRECT` event. The system cannot confirm that the review was actually posted; importing real Google reviews is phase 2.
+7. Each Google click is logged as a `GOOGLE_REDIRECT` event, keeping the last text the customer copied. The dashboard tags these "Not confirmed": the system cannot see whether the review was actually posted; importing real Google reviews is phase 2.
 
 ### 4.3 1–3★ private-first flow
 1. Message: *"We are sorry we didn't meet your expectations today. Please tell management what went wrong so we can fix it."*
@@ -159,7 +159,8 @@ English by default, with a Hindi toggle.
   - Google-click rate.
   - Complaints by status.
   - Breakdown by branch, staff and table.
-- **QR studio:** branch, table-batch and staff QR codes, exported as high-resolution PNG and SVG, with optional business branding.
+- **QR studio:** branch, table-batch and staff QR cards in the brand colour with a business-type accent, an editable headline with a Hindi line, and (for staff) their photo, name and designation. Sizes: A6 table tent (4 per A4), A5 counter stand (2 per A4), A4 poster. Downloads: print-ready 300 dpi PDF sheets or single cards, 4000-pixel PNG, and SVG; also browser printing.
+- **Removing staff:** hides them from lists, ID cards, the QR studio and staff rankings; their past ratings stay in branch totals and their printed code becomes a branch code. Owners can restore them.
 
 ---
 

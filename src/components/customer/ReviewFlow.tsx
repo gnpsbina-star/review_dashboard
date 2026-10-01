@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCamera, IconCheck, IconCopy, IconHeart, IconLock, IconRefresh, STAR_PATH } from "@/components/icons";
 import { shrinkPhoto } from "./shrinkPhoto";
 import { BusinessLogo } from "@/components/ui";
-import { ISSUE_KEYS, LANG_LABELS, normalizeIndianMobile, T, type UiLang } from "@/lib/customer-i18n";
+import type { Family } from "@/lib/business-type";
+import { ISSUES, LANG_LABELS, normalizeIndianMobile, T, type UiLang } from "@/lib/customer-i18n";
 
 type Lang = "en" | "hi" | "hinglish";
 type Suggestion = { id: string; language: Lang; text: string };
@@ -19,6 +20,7 @@ export interface FlowProps {
   googleUrl: string;
   facebookUrl: string | null;
   brand: string;
+  family: Family;
   tableLabel: string | null;
   staffName: string | null;
   languages: Lang[];
@@ -79,6 +81,16 @@ function logGoogleClick(body: Record<string, unknown>) {
   }
 }
 
+/** A random suggestion in the language the customer is reading the page in. */
+function pickSuggestion(list: Suggestion[], ui: UiLang): Suggestion | null {
+  const order: Lang[] = ui === "hi" ? ["hi", "hinglish", "en"] : ["en", "hinglish", "hi"];
+  for (const lang of order) {
+    const options = list.filter((s) => s.language === lang);
+    if (options.length) return options[Math.floor(Math.random() * options.length)];
+  }
+  return null;
+}
+
 export function ReviewFlow(p: FlowProps) {
   const [ui, setUi] = useState<UiLang>("en");
   const t = T[ui];
@@ -90,6 +102,8 @@ export function ReviewFlow(p: FlowProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<{ text: string; ok: boolean } | null>(null);
+  // 4–5★: Google opens straight away with a suggestion copied; this page stays behind with the full list.
+  const [sent, setSent] = useState<{ text: string; copy: "pending" | "ok" | "failed"; opened: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Complaint form
@@ -155,13 +169,56 @@ export function ReviewFlow(p: FlowProps) {
     setSelected(null);
     setOffset(0);
     setErrors({});
-    window.setTimeout(() => go(n >= 4 ? "positive" : "negative"), 320);
+    if (n >= 4) {
+      sendToGoogle(n >= 5 ? 5 : 4);
+      return;
+    }
+    window.setTimeout(() => go("negative"), 320);
+  }
+
+  /**
+   * Copies a suggestion and opens Google in a new tab, all inside the star tap
+   * so the browser allows both. Google never lets a site fill in the review
+   * box, so the customer pastes it there. This page stays open behind it.
+   */
+  function sendToGoogle(t: 4 | 5) {
+    const list = p.suggestions[t];
+    const sug = pickSuggestion(list, ui);
+    const text = sug?.text.trim() ?? "";
+    if (sug) {
+      setLangFilter("all");
+      setOffset(Math.max(0, list.indexOf(sug)));
+      setSelected(sug.id);
+      setSent({ text, copy: "pending", opened: false });
+      try {
+        navigator.clipboard.writeText(text).then(
+          () => setSent((cur) => cur && cur.text === text ? { ...cur, copy: "ok" } : cur),
+          () => setSent((cur) => cur && cur.text === text ? { ...cur, copy: "failed" } : cur),
+        );
+      } catch {
+        setSent({ text, copy: "failed", opened: false });
+      }
+    } else {
+      setSent({ text: "", copy: "failed", opened: false });
+    }
+    let opened = false;
+    try {
+      const w = window.open(p.googleUrl, "_blank");
+      opened = !!w;
+      if (w) w.opener = null;
+    } catch {
+      /* a blocked popup leaves the Open Google button below */
+    }
+    setSent((cur) => cur && { ...cur, opened });
+    logGoogleClick(sug ? { code: p.code, rating: t, text, language: sug.language, edited: false } : { code: p.code, rating: t });
+    go("positive");
   }
 
   function restart() {
     setRating(0);
     setSelected(null);
     setCopied(null);
+    setSent(null);
     setIssues([]);
     setComment("");
     setErrors({});
@@ -217,7 +274,7 @@ export function ReviewFlow(p: FlowProps) {
                 </span>
               )}
               <div>
-                <h1 className="q">{t.q}</h1>
+                <h1 className="q">{p.family === "education" ? t.qEdu : t.q}</h1>
                 <p className="q-sub">{t.qs}</p>
               </div>
               <div className="starrow" role="radiogroup" aria-label={t.q} onMouseLeave={() => setHover(0)}>
@@ -250,10 +307,21 @@ export function ReviewFlow(p: FlowProps) {
 
           {step === "positive" && (
             <>
-              <div>
-                <h1 className="q q-sm">{t.posH}</h1>
-                <p className="q-sub">{pool.length ? t.posS : t.noSug}</p>
-              </div>
+              {sent ? (
+                <div className="sent" role="status">
+                  <div className="sent-ic"><IconCheck size={22} /></div>
+                  <div>
+                    <h1 className="q q-sm">{!sent.text ? t.sentNoText : sent.copy === "failed" ? t.copFail : t.copH}</h1>
+                    <p className="q-sub">{sent.opened ? t.sentOpened : t.sentBlocked}</p>
+                    {sent.text && <p className="q-sub">{t.sentOther}</p>}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h1 className="q q-sm">{t.posH}</h1>
+                  <p className="q-sub">{pool.length ? t.posS : t.noSug}</p>
+                </div>
+              )}
               {displayLangs.length > 1 && (
                 <div className="chips" role="group" aria-label="Language">
                   {(["all", ...displayLangs] as const).map((k) => (
@@ -350,9 +418,11 @@ export function ReviewFlow(p: FlowProps) {
               href={p.googleUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => logGoogleClick({ code: p.code, rating })}
+              onClick={() => {
+                if (!sent) logGoogleClick({ code: p.code, rating });
+              }}
             >
-              {t.skip}
+              {sent ? (sent.opened ? t.openG : t.openGoogle) : t.skip}
             </a>
             {p.facebookUrl && (
               <a
@@ -414,7 +484,7 @@ export function ReviewFlow(p: FlowProps) {
                     code: p.code,
                     rating,
                     comment: comment.trim(),
-                    issues: issues.map((i) => ISSUE_KEYS[i]),
+                    issues: issues.map((i) => ISSUES[p.family].en[i]),
                     name: name.trim(),
                     phone: phone.trim(),
                     turnstileToken: captcha ?? undefined,
@@ -506,7 +576,7 @@ function ComplaintForm(props: {
       <div className="field">
         <span className="label">{t.what} <span className="opt">· {t.tapAll}</span></span>
         <div className="chips">
-          {t.issues.map((label, i) => (
+          {ISSUES[p.family][t === T.hi ? "hi" : "en"].map((label, i) => (
             <button
               key={i}
               type="button"

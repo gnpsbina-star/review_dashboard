@@ -39,6 +39,17 @@ enum SuggestionLang {
   hinglish
 }
 
+enum BusinessType {
+  SCHOOL
+  COACHING
+  CLINIC
+  SALON
+  GYM
+  RESTAURANT
+  RETAIL
+  OTHER
+}
+
 enum QrKind {
   BRANCH
   TABLE
@@ -134,11 +145,14 @@ model Business {
   organizationId   String
   organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name             String
-  category         String // e.g. "Fine dining restaurant", "Dental clinic"
+  type             BusinessType? // picked from a list; null on older rows until saved (guessed from category)
+  category         String // free-text description, e.g. "CBSE school", "Dental clinic"
   address          String?
   brandColor       String        @default("#0E6B63")
   brandTone        String        @default("Warm and friendly")
   deviceLimitHours Int           @default(2)
+  qrHeadline       String? // printed on QR cards; a default is used when empty
+  qrHeadlineHi     String? // Hindi line under the headline
   logoVersion      Int           @default(0)
   archivedAt       DateTime?
   createdAt        DateTime      @default(now())
@@ -203,6 +217,7 @@ model Staff {
   photoKey            String?      @unique
   photoVersion        Int          @default(0)
   photoConsentAt      DateTime? // when the owner confirmed the employee agreed
+  removedAt           DateTime? // hidden everywhere, history kept; the owner can restore
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @default(now()) @updatedAt
   qrCodes             QrCode[]
