@@ -67,4 +67,17 @@ describe("Facebook sharing", () => {
     expect(await url("")).toContain("saved=");
     expect((await db.branch.findUniqueOrThrow({ where: { id: T.b1.id } })).facebookReviewUrl).toBeNull();
   });
+
+  it("the floating review helper is on by default and can be switched off", async () => {
+    expect((await db.branch.findUniqueOrThrow({ where: { id: T.b1.id } })).floatingHelper).toBe(true);
+    await signInAs(T.owner.id);
+    const f = new FormData();
+    Object.entries({ branchId: T.b1.id, name: "One", cityArea: "Bengaluru", googleReviewUrl: "https://g.page/r/abc/review", highlights: "coffee" }).forEach(([k, v]) => f.set(k, v));
+    f.append("languages", "en");
+    expect(((await updateBranch(f).catch((e) => e)) as { url: string }).url).toContain("saved=");
+    expect((await db.branch.findUniqueOrThrow({ where: { id: T.b1.id } })).floatingHelper).toBe(false);
+    f.set("floatingHelper", "on");
+    await updateBranch(f).catch(() => undefined);
+    expect((await db.branch.findUniqueOrThrow({ where: { id: T.b1.id } })).floatingHelper).toBe(true);
+  });
 });

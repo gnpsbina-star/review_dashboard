@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCamera, IconCheck, IconCopy, IconHeart, IconLock, IconRefresh, STAR_PATH } from "@/components/icons";
 import { shrinkPhoto } from "./shrinkPhoto";
+import { canFloatOver, FloatingReview } from "./floatingReview";
 import { BusinessLogo } from "@/components/ui";
 import type { Family } from "@/lib/business-type";
 import { ISSUES, LANG_LABELS, normalizeIndianMobile, T, type UiLang } from "@/lib/customer-i18n";
@@ -21,6 +22,7 @@ export interface FlowProps {
   facebookUrl: string | null;
   brand: string;
   family: Family;
+  floatingHelper: boolean;
   tableLabel: string | null;
   staffName: string | null;
   languages: Lang[];
@@ -104,6 +106,25 @@ export function ReviewFlow(p: FlowProps) {
   const [copied, setCopied] = useState<{ text: string; ok: boolean } | null>(null);
   // 4–5★: Google opens straight away with a suggestion copied; this page stays behind with the full list.
   const [sent, setSent] = useState<{ text: string; copy: "pending" | "ok" | "failed"; opened: boolean } | null>(null);
+  // Trial: the copied review floats in a picture-in-picture window on top of Google.
+  const floatRef = useRef<FloatingReview | null>(null);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    if (!p.floatingHelper || !FloatingReview.supported() || !canFloatOver(p.googleUrl, navigator.userAgent)) return;
+    const helper = new FloatingReview(p.brand, () => setFloating(false));
+    floatRef.current = helper;
+    return () => {
+      helper.destroy();
+      floatRef.current = null;
+    };
+  }, [p.floatingHelper, p.googleUrl, p.brand]);
+
+  /** Must run inside the customer's tap, before Google opens. */
+  function floatReview(text: string) {
+    const helper = floatRef.current;
+    if (!helper || !text) return;
+    void helper.show(text, { title: t.floatTitle, steps: t.floatSteps }).then(setFloating);
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Complaint form
@@ -201,6 +222,7 @@ export function ReviewFlow(p: FlowProps) {
     } else {
       setSent({ text: "", copy: "failed", opened: false });
     }
+    floatReview(text);
     let opened = false;
     try {
       const w = window.open(p.googleUrl, "_blank");
@@ -219,6 +241,8 @@ export function ReviewFlow(p: FlowProps) {
     setSelected(null);
     setCopied(null);
     setSent(null);
+    floatRef.current?.close();
+    setFloating(false);
     setIssues([]);
     setComment("");
     setErrors({});
@@ -243,6 +267,7 @@ export function ReviewFlow(p: FlowProps) {
     } catch {
       done(false);
     }
+    floatReview(text);
     logGoogleClick({ code: p.code, rating, text, language: selectedSug.language, edited: text !== selectedSug.text });
     // The link itself opens Google in a new tab, which keeps popup blockers happy.
   }
@@ -312,7 +337,8 @@ export function ReviewFlow(p: FlowProps) {
                   <div className="sent-ic"><IconCheck size={22} /></div>
                   <div>
                     <h1 className="q q-sm">{!sent.text ? t.sentNoText : sent.copy === "failed" ? t.copFail : t.copH}</h1>
-                    <p className="q-sub">{sent.opened ? t.sentOpened : t.sentBlocked}</p>
+                    <p className="q-sub">{floating ? t.floatOn : sent.opened ? t.sentOpened : t.sentBlocked}</p>
+                    {floating && <button type="button" className="linkbtn" onClick={() => floatRef.current?.close()}>{t.floatHide}</button>}
                     {sent.text && <p className="q-sub">{t.sentOther}</p>}
                   </div>
                 </div>
@@ -362,6 +388,7 @@ export function ReviewFlow(p: FlowProps) {
             <div className="done" style={{ paddingTop: 12 }}>
               <div className="done-ic"><IconCheck size={36} /></div>
               <h1 className="q q-sm">{copied.ok ? t.copH : t.copFail}</h1>
+              {floating && <p className="q-sub">{t.floatOn}</p>}
               <ol className="steps"><li>{t.st1}</li><li>{t.st2}</li><li>{t.stPhoto}</li><li>{t.st3}</li></ol>
               <div className="copied-text">{copied.text}</div>
               {p.facebookUrl && <p className="help">{t.alsoFbHint}</p>}

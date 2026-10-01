@@ -99,7 +99,7 @@ Platform (Synergy Technologies)
 - **Branch slugs are locked** once the branch is created. Names, Google URLs and Place IDs can change freely.
 
 ### 4.2 4–5★ positive flow
-1. The star tap itself copies a **random suggestion in the customer's page language** and opens the branch's Google review URL in a new tab. Google does not let any site fill in its review box, so the customer pastes it (the page says how). If the browser blocks the new tab, an "Open Google" button takes its place.
+1. The star tap itself copies a **random suggestion in the customer's page language** and opens the branch's Google review URL in a new tab. Google does not let any site fill in its review box, so the customer pastes it (the page says how). If the browser blocks the new tab, an "Open Google" button takes its place. **Floating review helper (trial, on by default per branch):** the copied review and "Tap the review box → Paste → Post" float above Google in a picture-in-picture window. On Android, Chrome becomes the floating window itself, so this runs only when the branch's link opens the Google Maps app (`g.page/r/…/review`); the branch page warns owners whose link opens in the browser, which can show a blank page.
 2. The review page stays open behind Google with 4 suggestions from the branch's pre-generated pool. Wording differs for 4★ and 5★, and for the business type (schools and coaching: a mix of parent and student voices; restaurants: food and service; everything else: neutral). Some suggestions mention the staff member when the QR carries one.
 3. Language badges: 🇬🇧 English, 🇮🇳 Hindi (Devanagari), 🗣️ Hinglish (Roman script), as enabled for the branch.
 4. Cards are **editable** before copying, so the customer can make the review their own.

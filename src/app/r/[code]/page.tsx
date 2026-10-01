@@ -45,6 +45,7 @@ export default async function ReviewPage(props: PageProps<"/r/[code]">) {
     ...common,
     code: ctx.qr.code,
     family,
+    floatingHelper: ctx.branch.floatingHelper,
     tableLabel: ctx.qr.tableLabel,
     staffName: ctx.staffName,
     languages: langs,

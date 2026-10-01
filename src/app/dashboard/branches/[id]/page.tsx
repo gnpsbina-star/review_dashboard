@@ -8,6 +8,7 @@ import { addStaff, archiveBranch, regenerateSuggestions, setStaffActive, updateB
 import { removeStaff, restoreStaff } from "../../staff/actions";
 import { requireAccess } from "@/lib/access";
 import { businessTypeOf } from "@/lib/business-type";
+import { opensMapsApp } from "@/lib/google-link";
 import { LANG_LABELS } from "@/lib/customer-i18n";
 import { db } from "@/lib/db";
 import { qrUrl } from "@/lib/env";
@@ -41,6 +42,13 @@ export default async function BranchPage(props: PageProps<"/dashboard/branches/[
       </div>
       <Flash sp={sp} />
 
+      {!opensMapsApp(br.googleReviewUrl) && (
+        <div className="notice warn">
+          <span>
+            <b>Your Google link may open a blank page on phones.</b> It opens in the browser, where Google often shows nothing if the customer isn’t signed in. In Google Business Profile, tap <b>Ask for reviews</b>, copy the link that starts with <b>g.page/r/</b>, and paste it below. It opens the Google Maps app instead.
+          </span>
+        </div>
+      )}
       <section className="panel">
         <h3>Branch details and AI settings</h3>
         <form action={updateBranch} style={{ display: "grid", gap: 14 }}>

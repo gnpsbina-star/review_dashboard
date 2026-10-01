@@ -182,6 +182,7 @@ model Branch {
   googlePlaceId          String?
   googleReviewUrl        String
   facebookReviewUrl      String? // optional; shows "Also share on Facebook"
+  floatingHelper         Boolean            @default(true) // float the copied review over Google (trial)
   languages              SuggestionLang[]   @default([en])
   highlights             String[]           @default([])
   aiSettingsUpdatedAt    DateTime           @default(now())

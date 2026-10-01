@@ -1,6 +1,6 @@
 import { HIGHLIGHT_EXAMPLES, type BusinessType } from "@/lib/business-type";
 
-export function BranchFields({ br, type }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; facebookReviewUrl?: string | null; languages: string[]; highlights: string[] }; type: BusinessType }) {
+export function BranchFields({ br, type }: { br?: { name: string; cityArea: string; googleReviewUrl: string; googlePlaceId: string | null; facebookReviewUrl?: string | null; languages: string[]; highlights: string[]; floatingHelper: boolean }; type: BusinessType }) {
   const langs = br?.languages ?? ["en", "hi", "hinglish"];
   return (
     <div className="form-grid">
@@ -8,8 +8,8 @@ export function BranchFields({ br, type }: { br?: { name: string; cityArea: stri
       <div className="field"><label htmlFor="br-area">City &amp; area</label><input id="br-area" name="cityArea" required maxLength={100} placeholder="Indiranagar, Bengaluru" defaultValue={br?.cityArea} /></div>
       <div className="field full">
         <label htmlFor="br-url">Google review link</label>
-        <input id="br-url" name="googleReviewUrl" type="url" required maxLength={500} placeholder="https://search.google.com/local/writereview?placeid=…" defaultValue={br?.googleReviewUrl} />
-        <span className="help">In Google Business Profile, choose “Ask for reviews” and copy the link. Only Google links are accepted.</span>
+        <input id="br-url" name="googleReviewUrl" type="url" required maxLength={500} placeholder="https://g.page/r/…/review" defaultValue={br?.googleReviewUrl} />
+        <span className="help">In Google Business Profile, choose “Ask for reviews” and copy the link (it starts with g.page/r/). It opens the Google Maps app on phones. Only Google links are accepted.</span>
       </div>
       <div className="field full">
         <label htmlFor="br-fb">Facebook page link <span className="opt">(optional)</span></label>
@@ -29,6 +29,10 @@ export function BranchFields({ br, type }: { br?: { name: string; cityArea: stri
         <label htmlFor="br-hl">Top highlights (3 to 5, separated by commas)</label>
         <input id="br-hl" name="highlights" maxLength={220} placeholder={HIGHLIGHT_EXAMPLES[type]} defaultValue={br?.highlights.join(", ")} />
         <span className="help">The AI mentions only these, so suggestions never invent things you don’t offer.</span>
+      </div>
+      <div className="field full">
+        <label className="check"><input type="checkbox" name="floatingHelper" defaultChecked={br?.floatingHelper ?? true} /> Floating review helper <span className="opt">(trial)</span></label>
+        <span className="help">When a happy customer goes to Google, their copied review floats in a small window on top, with “Tap the review box → Paste → Post”. Works on most iPhones and computers; on Android it needs the g.page/r/ link above so Google opens in the Maps app.</span>
       </div>
     </div>
   );

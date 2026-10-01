@@ -154,6 +154,7 @@ const BranchInput = z.object({
     .refine((v) => v === null || isFacebookUrl(v), "Use your Facebook page link"),
   languages: z.array(z.enum(LANGS)).min(1),
   highlights: z.array(z.string().trim().min(1).max(40)).max(5),
+  floatingHelper: z.boolean(),
 });
 
 const FACEBOOK_HOSTS = ["facebook.com", "www.facebook.com", "m.facebook.com", "fb.com", "www.fb.com", "fb.me"];
@@ -185,6 +186,7 @@ function branchFields(form: FormData) {
     googlePlaceId: form.get("googlePlaceId") ?? undefined,
     facebookReviewUrl: form.get("facebookReviewUrl") ?? undefined,
     languages: form.getAll("languages").map(String),
+    floatingHelper: form.get("floatingHelper") === "on",
     highlights: String(form.get("highlights") ?? "")
       .split(/[,\n]/)
       .map((h) => h.trim())
